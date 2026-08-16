@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession, homeFor } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { firstRunState } from "@/lib/firstRun";
 import LoginForm from "./LoginForm";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +9,9 @@ export default async function LoginPage() {
   const session = await getSession();
   if (session) redirect(homeFor(session.role));
 
-  const userCount = await prisma.user.count().catch(() => -1);
+  // A brand-new install has no accounts yet — send them to first-run setup.
+  const state = await firstRunState();
+  if (state === "needs-setup") redirect("/setup");
 
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center px-5 py-10">
@@ -25,14 +27,10 @@ export default async function LoginPage() {
           <LoginForm />
         </div>
 
-        {userCount === 0 && (
-          <p className="mt-4 rounded-xl border border-warn/30 bg-warn/10 px-4 py-3 text-[13px] text-warn">
-            No accounts exist yet. Run <code className="font-mono">npm run db:seed</code> to create the owner login.
-          </p>
-        )}
-        {userCount === -1 && (
+        {state === "no-database" && (
           <p className="mt-4 rounded-xl border border-bad/30 bg-bad/10 px-4 py-3 text-[13px] text-bad">
-            Cannot reach the database. Check <code className="font-mono">DATABASE_URL</code> in your .env file.
+            Cannot reach the database. Check that <code className="font-mono">DATABASE_URL</code> is set
+            correctly, then redeploy.
           </p>
         )}
       </div>
