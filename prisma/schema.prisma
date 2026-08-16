@@ -379,6 +379,9 @@ model Transaction {
 
   animalId String?
   animal   Animal? @relation(fields: [animalId], references: [id], onDelete: SetNull)
+  // Kept when an animal is deleted, so money already spent can still be
+  // attributed to it in the ledger. e.g. "Gauri (COW-001)".
+  animalLabel String?
 
   // Auto-linked source rows (so costs are never double-counted)
   healthRecordId String? @unique

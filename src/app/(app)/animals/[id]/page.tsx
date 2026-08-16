@@ -194,7 +194,9 @@ export default async function AnimalPage({
             <Card className="p-4">
               <h2 className="h2 text-bad">Danger zone</h2>
               <p className="mt-1 text-[13px] text-muted">
-                Deleting removes this animal and all of its records permanently. To keep the history, mark it Sold or Deceased instead.
+                Deleting removes this animal and its health, feed, breeding and photo records permanently.
+                Money already spent stays in your accounts, labelled &ldquo;{animal.name} ({animal.tagId})&rdquo;,
+                so your totals do not change. To keep the full history, mark it Sold or Deceased instead.
               </p>
               <form action={deleteAnimalAction} className="mt-3">
                 <input type="hidden" name="id" value={animal.id} />
