@@ -73,10 +73,14 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
     })).map((a) => [a.id, a])
   );
 
-  // Monthly series across the selected range (capped at 12 buckets for legibility).
+  // One bucket per month across the whole selected range. Only the most recent
+  // twelve are charted, so a wide range still shows current activity instead of
+  // its oldest — and never an empty chart.
+  const MAX_BARS = 12;
   const buckets: { key: string; month: string; income: number; expense: number }[] = [];
   const cursor = new Date(from.getFullYear(), from.getMonth(), 1);
-  while (cursor <= to && buckets.length < 12) {
+  const lastMonth = new Date(to.getFullYear(), to.getMonth(), 1);
+  while (cursor <= lastMonth && buckets.length < 1200) {
     buckets.push({
       key: `${cursor.getFullYear()}-${cursor.getMonth()}`,
       month: cursor.toLocaleDateString(undefined, { month: "short", year: "2-digit" }),
@@ -91,6 +95,9 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
     const b = bucketByKey.get(`${d.getFullYear()}-${d.getMonth()}`);
     if (b) b[t.type === "INCOME" ? "income" : "expense"] += Number(t.amount);
   }
+  const chartBuckets = buckets.slice(-MAX_BARS);
+  const chartSubtitle =
+    buckets.length > MAX_BARS ? `Most recent ${MAX_BARS} months of the selected range` : "By month";
 
   const dateVal = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -165,8 +172,8 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       </form>
 
       <div className="grid items-start gap-4 lg:grid-cols-2">
-        <Section title="Income vs expenses" subtitle="By month" className="lg:col-span-2">
-          <IncomeExpenseChart data={buckets} currency={settings.currency} />
+        <Section title="Income vs expenses" subtitle={chartSubtitle} className="lg:col-span-2">
+          <IncomeExpenseChart data={chartBuckets} currency={settings.currency} />
         </Section>
 
         <Section title="Expenses by category">
@@ -229,6 +236,10 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
                             <Avatar photoId={t.animal.profilePhotoId} name={t.animal.name} size={22} emoji={SPECIES[t.animal.species].emoji} />
                             {t.animal.name}
                           </Link>
+                        ) : t.animalLabel ? (
+                          <span className="text-muted" title="This animal has been removed from the farm records">
+                            {t.animalLabel} <span className="text-[11.5px]">(removed)</span>
+                          </span>
                         ) : "—"}
                       </td>
                       <td className="td text-muted">{t.vendor ?? "—"}</td>

@@ -133,12 +133,55 @@ export async function recordSaleAction(_prev: State, fd: FormData): Promise<Stat
   return { ok: "Saved." };
 }
 
+/**
+ * Removes an animal and its records — but never its money.
+ *
+ * Deleting an animal used to rewrite the accounts: its feed and vet costs
+ * cascaded away with the health and feed rows they were linked to, while its
+ * purchase price survived with nothing to say who it was for. Money that left
+ * the farm should stay in the books either way, so every transaction touching
+ * this animal is detached and stamped with its name before the delete runs.
+ * The ledger total is unchanged; the entries just read "Gauri (COW-001)
+ * (removed)" instead of linking to a profile that no longer exists.
+ */
 export async function deleteAnimalAction(fd: FormData) {
   const user = await requireUser();
   if (!can.manageAnimals(user.role)) throw new Error("Not permitted.");
   const id = reqStr(fd, "id");
-  await prisma.animal.delete({ where: { id } });
+
+  const animal = await prisma.animal.findUnique({
+    where: { id },
+    select: { name: true, tagId: true },
+  });
+  if (!animal) redirect("/animals");
+
+  const [healthIds, feedIds] = await Promise.all([
+    prisma.healthRecord.findMany({ where: { animalId: id }, select: { id: true } }),
+    prisma.feedLog.findMany({ where: { animalId: id }, select: { id: true } }),
+  ]);
+
+  await prisma.$transaction([
+    prisma.transaction.updateMany({
+      where: {
+        OR: [
+          { animalId: id },
+          { healthRecordId: { in: healthIds.map((r) => r.id) } },
+          { feedLogId: { in: feedIds.map((r) => r.id) } },
+        ],
+      },
+      data: {
+        animalLabel: `${animal.name} (${animal.tagId})`,
+        animalId: null,
+        healthRecordId: null,
+        feedLogId: null,
+      },
+    }),
+    prisma.animal.delete({ where: { id } }),
+  ]);
+
   revalidatePath("/animals");
+  revalidatePath("/finance");
+  revalidatePath("/dashboard");
   redirect("/animals");
 }
 
