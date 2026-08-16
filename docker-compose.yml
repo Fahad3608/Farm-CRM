@@ -1,0 +1,19 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: farmcrm-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: farm
+      POSTGRES_PASSWORD: farm
+      POSTGRES_DB: farmcrm
+    ports: ["5432:5432"]
+    volumes: ["farmcrm-pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U farm -d farmcrm"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  farmcrm-pgdata:

@@ -1,0 +1,14 @@
+{
+  "name": "Farm CRM",
+  "short_name": "Farm CRM",
+  "description": "Livestock records, health, feed and finances.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f9faf7",
+  "theme_color": "#2e7d50",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
