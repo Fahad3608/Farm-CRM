@@ -1,0 +1,420 @@
+// Farm CRM — data model
+// Provider: PostgreSQL (works with Neon / Supabase / Railway / self-hosted Docker)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Users & access control
+// ─────────────────────────────────────────────────────────────
+
+enum Role {
+  OWNER   // full access: everything incl. finance + user management
+  MANAGER // everything except user management
+  VET     // health + breeding records only. No finance, no prices.
+  WORKER  // daily logs: feed, milk, weight. No finance.
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  phone        String?
+  passwordHash String
+  role         Role     @default(WORKER)
+  // Vet-specific
+  clinic       String?
+  licenseNo    String?
+  active       Boolean  @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  healthRecords   HealthRecord[]  @relation("HealthAuthor")
+  vetVisits       HealthRecord[]  @relation("HealthVet")
+  photos          Photo[]
+  transactions    Transaction[]
+  feedLogs        FeedLog[]
+  auditLogs       AuditLog[]
+}
+
+// ─────────────────────────────────────────────────────────────
+// Animals
+// ─────────────────────────────────────────────────────────────
+
+enum Species {
+  COW
+  BUFFALO
+  GOAT
+  SHEEP
+  HORSE
+  POULTRY
+  OTHER
+}
+
+enum Sex {
+  MALE
+  FEMALE
+}
+
+enum AnimalStatus {
+  ACTIVE
+  SOLD
+  DECEASED
+  CULLED
+  LOANED_OUT
+}
+
+enum AcquisitionType {
+  BORN_ON_FARM
+  PURCHASED
+  GIFTED
+  INHERITED
+  OTHER
+}
+
+enum ReproStatus {
+  NOT_APPLICABLE
+  OPEN          // not pregnant, cycling
+  BRED          // served, awaiting confirmation
+  PREGNANT
+  LACTATING
+  DRY
+  CASTRATED
+}
+
+model Animal {
+  id        String  @id @default(cuid())
+  tagId     String  @unique          // ear tag / farm ID, e.g. COW-001
+  name      String                    // friendly name, e.g. "Cow One"
+  species   Species
+  breed     String?
+  sex       Sex
+  color     String?
+  markings  String?                  // distinguishing features
+  hornStatus String?                 // horned / polled / dehorned
+  microchip String?
+
+  dateOfBirth      DateTime?
+  ageIsEstimated   Boolean  @default(false)
+  dateJoined       DateTime            // date it came onto the farm
+  acquisition      AcquisitionType @default(BORN_ON_FARM)
+  sourceName       String?             // seller / market / previous owner
+  purchasePrice    Decimal? @db.Decimal(12, 2)
+
+  status      AnimalStatus @default(ACTIVE)
+  exitDate    DateTime?
+  exitReason  String?
+  salePrice   Decimal? @db.Decimal(12, 2)
+  buyerName   String?
+
+  reproStatus       ReproStatus @default(NOT_APPLICABLE)
+  expectedDueDate   DateTime?
+
+  penOrLocation String?
+  insuranceNo   String?
+  notes         String?
+
+  // Lineage
+  motherId String?
+  mother   Animal?  @relation("Dam", fields: [motherId], references: [id], onDelete: SetNull)
+  damOf    Animal[] @relation("Dam")
+  fatherId String?
+  father   Animal?  @relation("Sire", fields: [fatherId], references: [id], onDelete: SetNull)
+  sireOf   Animal[] @relation("Sire")
+
+  profilePhotoId String? @unique
+  profilePhoto   Photo?  @relation("ProfilePhoto", fields: [profilePhotoId], references: [id], onDelete: SetNull)
+
+  photos          Photo[]          @relation("AnimalPhotos")
+  healthRecords   HealthRecord[]
+  feedLogs        FeedLog[]
+  weights         WeightRecord[]
+  milkRecords     MilkRecord[]
+  breedingAsDam   BreedingRecord[] @relation("BreedingDam")
+  breedingAsSire  BreedingRecord[] @relation("BreedingSire")
+  transactions    Transaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([species, status])
+  @@index([name])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Photos (stored in DB so no third-party storage account is needed)
+// ─────────────────────────────────────────────────────────────
+
+model Photo {
+  id        String  @id @default(cuid())
+  animalId  String?
+  animal    Animal? @relation("AnimalPhotos", fields: [animalId], references: [id], onDelete: Cascade)
+
+  mimeType  String
+  data      Bytes   // full image (resized client-side, max 1600px)
+  thumb     Bytes   // 400px thumbnail
+  caption   String?
+  bytes     Int     @default(0)
+
+  uploadedById String?
+  uploadedBy   User?  @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  profileOf Animal? @relation("ProfilePhoto")
+
+  createdAt DateTime @default(now())
+
+  @@index([animalId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Health / veterinary
+// ─────────────────────────────────────────────────────────────
+
+enum HealthRecordType {
+  VACCINATION
+  INJECTION
+  DEWORMING
+  TREATMENT
+  CHECKUP
+  SURGERY
+  LAB_TEST
+  HOOF_CARE
+  PREGNANCY_CHECK
+  DEATH_REPORT
+  OTHER
+}
+
+model HealthRecord {
+  id       String @id @default(cuid())
+  animalId String
+  animal   Animal @relation(fields: [animalId], references: [id], onDelete: Cascade)
+
+  type        HealthRecordType
+  date        DateTime
+  title       String            // e.g. "FMD Vaccine — 2nd dose"
+  medicine    String?           // medicine / vaccine name
+  brand       String?
+  batchNo     String?
+  dosage      String?           // "5 ml"
+  route       String?           // IM / SC / IV / Oral / Topical
+  diagnosis   String?
+  treatment   String?
+  symptoms    String?
+  temperatureC Decimal? @db.Decimal(4, 1)
+  weightKg    Decimal? @db.Decimal(7, 2)
+  withdrawalUntil DateTime?     // milk/meat withdrawal period end
+  nextDueDate DateTime?         // next dose / follow-up
+  followUpDone Boolean @default(false)
+
+  // Costs — visible to owner/manager only
+  medicineCost Decimal? @db.Decimal(12, 2)
+  vetFee       Decimal? @db.Decimal(12, 2)
+
+  vetId     String?
+  vet       User?   @relation("HealthVet", fields: [vetId], references: [id], onDelete: SetNull)
+  vetName   String?  // for external vets without a login
+
+  notes     String?
+
+  createdById String?
+  createdBy   User?   @relation("HealthAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+
+  transaction Transaction?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([animalId, date])
+  @@index([type])
+  @@index([nextDueDate])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Feed
+// ─────────────────────────────────────────────────────────────
+
+model FeedType {
+  id          String  @id @default(cuid())
+  name        String  @unique      // Wheat Straw, Silage, Concentrate, Green Fodder...
+  category    String?              // Roughage / Concentrate / Supplement / Mineral
+  unit        String  @default("kg")
+  costPerUnit Decimal @default(0) @db.Decimal(12, 2)
+  supplier    String?
+  notes       String?
+  active      Boolean @default(true)
+
+  logs      FeedLog[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FeedLog {
+  id       String @id @default(cuid())
+  date     DateTime
+
+  feedTypeId String
+  feedType   FeedType @relation(fields: [feedTypeId], references: [id], onDelete: Restrict)
+
+  // Either one animal, or a group (animalId null + groupLabel set, cost split evenly)
+  animalId   String?
+  animal     Animal? @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  groupLabel String?          // e.g. "All cows", "Goat pen B"
+  headCount  Int     @default(1)
+
+  quantity  Decimal @db.Decimal(12, 3)
+  unitCost  Decimal @db.Decimal(12, 2)
+  totalCost Decimal @db.Decimal(12, 2)
+  notes     String?
+
+  recordedById String?
+  recordedBy   User?  @relation(fields: [recordedById], references: [id], onDelete: SetNull)
+
+  transaction Transaction?
+
+  createdAt DateTime @default(now())
+
+  @@index([date])
+  @@index([animalId, date])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Production & growth
+// ─────────────────────────────────────────────────────────────
+
+model WeightRecord {
+  id       String   @id @default(cuid())
+  animalId String
+  animal   Animal   @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  date     DateTime
+  weightKg Decimal  @db.Decimal(7, 2)
+  notes    String?
+  createdAt DateTime @default(now())
+
+  @@index([animalId, date])
+}
+
+model MilkRecord {
+  id       String   @id @default(cuid())
+  animalId String
+  animal   Animal   @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  date     DateTime
+  session  String   @default("AM") // AM / PM
+  litres   Decimal  @db.Decimal(7, 2)
+  notes    String?
+  createdAt DateTime @default(now())
+
+  @@index([animalId, date])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Breeding
+// ─────────────────────────────────────────────────────────────
+
+enum BreedingMethod {
+  NATURAL
+  ARTIFICIAL_INSEMINATION
+  EMBRYO_TRANSFER
+}
+
+enum BreedingStatus {
+  BRED
+  CONFIRMED_PREGNANT
+  NOT_PREGNANT
+  ABORTED
+  DELIVERED
+}
+
+model BreedingRecord {
+  id     String @id @default(cuid())
+  damId  String
+  dam    Animal @relation("BreedingDam", fields: [damId], references: [id], onDelete: Cascade)
+  sireId String?
+  sire   Animal? @relation("BreedingSire", fields: [sireId], references: [id], onDelete: SetNull)
+  sireName String?  // external sire / semen bull name
+
+  method          BreedingMethod @default(NATURAL)
+  breedingDate    DateTime
+  expectedDueDate DateTime?
+  confirmedAt     DateTime?
+  actualBirthDate DateTime?
+  offspringCount  Int?
+  offspringNotes  String?
+  status          BreedingStatus @default(BRED)
+  cost            Decimal? @db.Decimal(12, 2)
+  notes           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([damId])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Finance — single ledger
+// ─────────────────────────────────────────────────────────────
+
+enum TxnType {
+  INCOME
+  EXPENSE
+}
+
+model Transaction {
+  id     String   @id @default(cuid())
+  date   DateTime
+  type   TxnType
+  category String            // Feed, Veterinary, Medicine, Labour, Equipment, Milk Sales, Animal Sale...
+  amount Decimal  @db.Decimal(12, 2)
+  description String?
+  vendor      String?
+  paymentMethod String?      // Cash / Bank / Mobile
+  reference     String?
+
+  animalId String?
+  animal   Animal? @relation(fields: [animalId], references: [id], onDelete: SetNull)
+
+  // Auto-linked source rows (so costs are never double-counted)
+  healthRecordId String? @unique
+  healthRecord   HealthRecord? @relation(fields: [healthRecordId], references: [id], onDelete: Cascade)
+  feedLogId      String? @unique
+  feedLog        FeedLog? @relation(fields: [feedLogId], references: [id], onDelete: Cascade)
+
+  createdById String?
+  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date])
+  @@index([type, category])
+  @@index([animalId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Settings & audit
+// ─────────────────────────────────────────────────────────────
+
+model Setting {
+  key   String @id
+  value String
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String?
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

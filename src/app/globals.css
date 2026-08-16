@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: 249 250 247;
+  --surface: 255 255 255;
+  --surface-2: 244 246 242;
+  --line: 224 228 220;
+  --ink: 24 32 26;
+  --muted: 106 118 108;
+  --brand: 46 125 80;      /* pasture green */
+  --brand-ink: 255 255 255;
+  --good: 34 139 84;
+  --warn: 191 130 20;
+  --bad: 190 58 52;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: 15 19 16;
+    --surface: 24 30 25;
+    --surface-2: 32 39 33;
+    --line: 51 61 52;
+    --ink: 232 238 232;
+    --muted: 148 161 149;
+    --brand: 92 189 133;
+    --brand-ink: 10 26 16;
+    --good: 92 189 133;
+    --warn: 225 173 68;
+    --bad: 240 116 108;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: 15 19 16;
+  --surface: 24 30 25;
+  --surface-2: 32 39 33;
+  --line: 51 61 52;
+  --ink: 232 238 232;
+  --muted: 148 161 149;
+  --brand: 92 189 133;
+  --brand-ink: 10 26 16;
+  --good: 92 189 133;
+  --warn: 225 173 68;
+  --bad: 240 116 108;
+}
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  background: rgb(var(--bg));
+  color: rgb(var(--ink));
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-line bg-surface;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
+           transition-colors disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap;
+  }
+  .btn-primary { @apply btn bg-brand text-brandInk hover:opacity-90; }
+  .btn-ghost   { @apply btn border border-line bg-surface text-ink hover:bg-surface2; }
+  .btn-danger  { @apply btn border border-line text-bad hover:bg-surface2; }
+  .btn-sm      { @apply px-3 py-1.5 text-[13px] rounded-lg; }
+
+  .label { @apply block text-[13px] font-medium text-muted mb-1.5; }
+  .input {
+    @apply w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-[15px] text-ink
+           outline-none transition placeholder:text-muted/70
+           focus:border-brand focus:ring-2 focus:ring-brand/25;
+  }
+  select.input { @apply appearance-none bg-no-repeat pr-9; background-position: right 0.75rem center; }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-line px-2.5 py-0.5
+           text-[12px] font-medium text-muted;
+  }
+  .th { @apply px-3 py-2.5 text-left text-[12px] font-semibold uppercase tracking-wide text-muted; }
+  .td { @apply px-3 py-3 text-[14px] align-middle; }
+  .row { @apply border-t border-line hover:bg-surface2/60; }
+  .h1 { @apply text-[22px] sm:text-[26px] font-semibold tracking-tight; }
+  .h2 { @apply text-[15px] font-semibold tracking-tight; }
+  .scroll-x { @apply overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0; }
+}
+
+/* Native date/number pickers should follow the theme */
+input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.5); cursor: pointer; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgb(var(--line)); border-radius: 99px; }
