@@ -9,3 +9,5 @@ build/
 .vercel
 next-env.d.ts
 /prisma/*.db
+tsconfig.tsbuildinfo
+*.tsbuildinfo
