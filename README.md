@@ -93,23 +93,15 @@ cp .env.example .env
 # open .env and set AUTH_SECRET  (generate one with: openssl rand -base64 48)
 
 docker compose up -d          # starts PostgreSQL locally
-npm run db:push               # creates the tables
-npm run db:seed               # creates your owner login (+ demo data)
-
+npm run build                 # creates the tables, then builds
 npm run dev                   # open http://localhost:3000
 ```
 
-The seed prints the login it created. By default:
+The first time you open it, the app shows a **setup page** — enter your farm
+name, currency and owner account, and you're in. No seeding step, no terminal.
 
-```
-owner@farm.local  /  ChangeMe123!
-```
-
-Change `SEED_OWNER_EMAIL` / `SEED_OWNER_PASSWORD` in `.env` before seeding, or
-change the password later under **Settings → People with access**.
-
-Set `SEED_DEMO_DATA="false"` in `.env` to start with an empty farm instead of
-the 13 demo animals.
+Want the demo farm (13 animals with health, feed, breeding and finance history)
+to look around first? Run `npm run db:seed` before opening the app.
 
 ---
 
@@ -131,23 +123,20 @@ Everything below runs on accounts you own.
    | `DATABASE_URL` | your Neon connection string |
    | `AUTH_SECRET` | output of `openssl rand -base64 48` |
 
-4. **Create the tables** — once, from your own machine:
+4. Open your Vercel URL. The tables are created during the deploy, and the app
+   greets you with a **setup page** to create your farm and owner account.
 
-   ```bash
-   DATABASE_URL="<your neon url>" npx prisma db push
-   DATABASE_URL="<your neon url>" AUTH_SECRET="anything" npm run db:seed
-   ```
-
-5. Open your Vercel URL and sign in.
+That's it — there is no terminal step.
 
 ### Option B — your own server (Docker)
 
 ```bash
 docker compose up -d          # Postgres
-npm install && npm run build
-npm run db:push && npm run db:seed
+npm install && npm run build  # applies migrations, then builds
 npm start                     # serves on port 3000, put nginx/Caddy in front
 ```
+
+Then open it in a browser and complete the setup page.
 
 Point a domain at it and enable HTTPS — the session cookie is marked `secure`
 in production.
@@ -156,7 +145,7 @@ in production.
 
 ## Day-to-day
 
-1. **Settings** → set your farm name and currency.
+1. **First visit** → the setup page creates your farm and owner account.
 2. **Settings → People with access** → add your vet with the *Veterinarian*
    role and give them the password. Add farm hands as *Farm Worker*.
 3. **Feed** → add your feed types with their prices.
@@ -164,6 +153,22 @@ in production.
    face photo (this becomes the profile picture) plus any feature photos.
 5. From then on: log feed, let the vet record visits, record breeding, and the
    dashboard and finance pages keep themselves up to date.
+
+## Schema changes
+
+The database schema is versioned in `prisma/migrations`, and `npm run build`
+runs `prisma migrate deploy` before building — so every deploy brings the
+database up to date on its own.
+
+If you change `prisma/schema.prisma`, generate a migration for it:
+
+```bash
+npx prisma migrate dev --name describe_your_change
+```
+
+Upgrading a database that predates migrations (one created with
+`prisma db push`)? Baseline it once with
+`npx prisma migrate resolve --applied 0_init`.
 
 ---
 
@@ -191,7 +196,9 @@ third-party storage account to set up or pay for.
 
 ```
 prisma/schema.prisma      the data model — animals, health, feed, breeding, finance
-prisma/seed.ts            creates the owner account (+ optional demo farm)
+prisma/migrations/        versioned schema, applied automatically on deploy
+prisma/seed.ts            optional demo farm for looking around locally
+src/app/setup/            first-run page that creates the farm and owner account
 src/lib/permissions.ts    single source of truth for what each role may do
 src/lib/domain.ts         species, gestation periods, life stages, vaccine lists
 src/app/(app)/            the signed-in app — one folder per section

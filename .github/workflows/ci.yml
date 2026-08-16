@@ -8,6 +8,27 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    # The build runs `prisma migrate deploy`, so CI needs a real database.
+    # This also verifies the migrations apply cleanly from empty.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: farm
+          POSTGRES_PASSWORD: farm
+          POSTGRES_DB: farmcrm_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U farm -d farmcrm_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://farm:farm@localhost:5432/farmcrm_ci?schema=public
+      AUTH_SECRET: ci-only-secret-not-used-at-runtime
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -15,9 +36,7 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
-      - run: npx prisma generate
       - run: npx tsc --noEmit
       - run: npm run build
-        env:
-          DATABASE_URL: postgresql://user:pass@localhost:5432/db
-          AUTH_SECRET: ci-only-secret-not-used-at-runtime
+      - name: Verify the schema is in sync with the migrations
+        run: npx prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code

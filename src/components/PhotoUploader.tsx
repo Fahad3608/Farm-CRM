@@ -1,8 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 import { uploadPhotoAction } from "@/app/actions/animals";
 import { Icon } from "./icons";
 
@@ -26,20 +24,12 @@ async function resize(file: File, maxSize: number, quality: number): Promise<str
   return canvas.toDataURL("image/jpeg", quality);
 }
 
-function Submit({ ready }: { ready: boolean }) {
-  const { pending } = useFormStatus();
-  return (
-    <button className="btn-primary btn-sm" disabled={!ready || pending}>
-      {pending ? "Uploading…" : "Upload photo"}
-    </button>
-  );
-}
-
 export default function PhotoUploader({ animalId, isFirst }: { animalId: string; isFirst: boolean }) {
-  const [state, action] = useActionState(uploadPhotoAction, undefined);
+  const [state, action, isPending] = useActionState(uploadPhotoAction, undefined);
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const fullRef = useRef<HTMLInputElement>(null);
   const thumbRef = useRef<HTMLInputElement>(null);
 
@@ -60,8 +50,24 @@ export default function PhotoUploader({ animalId, isFirst }: { animalId: string;
     }
   }
 
+  // Clear the picked image once it is safely stored, but keep it on failure so
+  // the photo can be re-submitted without choosing it again.
+  useEffect(() => {
+    if (!state?.ok) return;
+    setPreview(null);
+    if (fullRef.current) fullRef.current.value = "";
+    if (thumbRef.current) thumbRef.current.value = "";
+    formRef.current?.reset();
+  }, [state]);
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    startTransition(() => action(data));
+  }
+
   return (
-    <form action={action} className="flex flex-col gap-3">
+    <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-3">
       <input type="hidden" name="animalId" value={animalId} />
       <input type="hidden" name="full" ref={fullRef} />
       <input type="hidden" name="thumb" ref={thumbRef} />
@@ -90,7 +96,11 @@ export default function PhotoUploader({ animalId, isFirst }: { animalId: string;
       {state?.error && <p className="text-[13px] text-bad">{state.error}</p>}
       {state?.ok && <p className="text-[13px] text-good">{state.ok}</p>}
 
-      <div><Submit ready={!!preview && !busy} /></div>
+      <div>
+        <button className="btn-primary btn-sm" disabled={!preview || busy || isPending}>
+          {isPending ? "Uploading…" : "Upload photo"}
+        </button>
+      </div>
     </form>
   );
 }
