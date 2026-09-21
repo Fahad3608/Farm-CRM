@@ -22,6 +22,11 @@ export async function saveHealthRecordAction(_prev: State, fd: FormData): Promis
 
   const id = str(fd, "id");
   const animalId = reqStr(fd, "animalId", "Animal");
+  // A vet is never shown the cost fields, so their save must leave whatever
+  // the owner recorded against this visit untouched.
+  const costs = can.viewFinance(user.role)
+    ? { medicineCost: dec(fd, "medicineCost"), vetFee: dec(fd, "vetFee") }
+    : null;
 
   try {
     const data = {
@@ -42,8 +47,7 @@ export async function saveHealthRecordAction(_prev: State, fd: FormData): Promis
       withdrawalUntil: date(fd, "withdrawalUntil"),
       nextDueDate: date(fd, "nextDueDate"),
       followUpDone: bool(fd, "followUpDone"),
-      medicineCost: dec(fd, "medicineCost"),
-      vetFee: dec(fd, "vetFee"),
+      ...costs,
       vetName: str(fd, "vetName") ?? (user.role === "VET" ? user.name : null),
       vetId: user.role === "VET" ? user.id : (str(fd, "vetId") ?? null),
       notes: str(fd, "notes"),
@@ -60,23 +64,25 @@ export async function saveHealthRecordAction(_prev: State, fd: FormData): Promis
       });
     }
 
-    const total = (data.medicineCost ?? 0) + (data.vetFee ?? 0);
-    const existing = await prisma.transaction.findUnique({ where: { healthRecordId: record.id } });
+    if (costs) {
+      const total = (costs.medicineCost ?? 0) + (costs.vetFee ?? 0);
+      const existing = await prisma.transaction.findUnique({ where: { healthRecordId: record.id } });
 
-    if (total > 0) {
-      const txn = {
-        date: data.date,
-        type: "EXPENSE" as const,
-        category: data.type === "VACCINATION" || data.type === "DEWORMING" || data.type === "INJECTION" ? "Medicine" : "Veterinary",
-        amount: total,
-        description: `${data.title}${data.medicine ? ` — ${data.medicine}` : ""}`,
-        vendor: data.vetName,
-        animalId,
-      };
-      if (existing) await prisma.transaction.update({ where: { id: existing.id }, data: txn });
-      else await prisma.transaction.create({ data: { ...txn, healthRecordId: record.id, createdById: user.id } });
-    } else if (existing) {
-      await prisma.transaction.delete({ where: { id: existing.id } });
+      if (total > 0) {
+        const txn = {
+          date: data.date,
+          type: "EXPENSE" as const,
+          category: data.type === "VACCINATION" || data.type === "DEWORMING" || data.type === "INJECTION" ? "Medicine" : "Veterinary",
+          amount: total,
+          description: `${data.title}${data.medicine ? ` — ${data.medicine}` : ""}`,
+          vendor: data.vetName,
+          animalId,
+        };
+        if (existing) await prisma.transaction.update({ where: { id: existing.id }, data: txn });
+        else await prisma.transaction.create({ data: { ...txn, healthRecordId: record.id, createdById: user.id } });
+      } else if (existing) {
+        await prisma.transaction.delete({ where: { id: existing.id } });
+      }
     }
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Could not save the record." };

@@ -5,7 +5,6 @@ import { requireUser } from "@/lib/auth";
 import { Avatar, Badge, Card, Empty, PageHeader, Section, StatTile } from "@/components/ui";
 import Disclosure from "@/components/Disclosure";
 import HealthRecordForm from "@/components/HealthRecordForm";
-import BreedingForm from "@/components/BreedingForm";
 import { HEALTH_TYPE, SPECIES, VACCINE_SUGGESTIONS } from "@/lib/domain";
 import { ageFrom, fmtDate, relativeDue } from "@/lib/format";
 import { markFollowUpDoneAction } from "@/app/actions/health";
@@ -13,8 +12,8 @@ import { markFollowUpDoneAction } from "@/app/actions/health";
 export const dynamic = "force-dynamic";
 
 /**
- * The veterinarian's home screen. Deliberately narrow: animals, health and
- * breeding only — no finances, no purchase or sale prices anywhere.
+ * The veterinarian's home screen. Deliberately narrow: the animal list and
+ * health records, nothing else — no money, no weights or yields, no breeding.
  */
 export default async function VetPage() {
   const user = await requireUser();
@@ -22,7 +21,7 @@ export default async function VetPage() {
 
   const in30 = new Date(Date.now() + 30 * 86400000);
 
-  const [animals, due, mine, pregnant] = await Promise.all([
+  const [animals, due, mine] = await Promise.all([
     prisma.animal.findMany({
       where: { status: "ACTIVE" },
       select: { id: true, name: true, tagId: true, species: true, sex: true, dateOfBirth: true, profilePhotoId: true, reproStatus: true },
@@ -39,30 +38,23 @@ export default async function VetPage() {
       take: 12,
       include: { animal: { select: { id: true, name: true, tagId: true, species: true, profilePhotoId: true } } },
     }),
-    prisma.animal.count({ where: { status: "ACTIVE", reproStatus: { in: ["PREGNANT", "BRED"] } } }),
   ]);
 
   const opts = animals.map((a) => ({ id: a.id, label: `${a.name} (${a.tagId})`, species: a.species }));
-  const dams = animals.filter((a) => a.sex === "FEMALE").map((a) => ({ id: a.id, label: `${a.name} (${a.tagId})` }));
-  const sires = animals.filter((a) => a.sex === "MALE").map((a) => ({ id: a.id, label: `${a.name} (${a.tagId})` }));
   const allSuggestions = [...new Set(Object.values(VACCINE_SUGGESTIONS).flat())];
 
   return (
     <>
-      <PageHeader title="Veterinary queue" subtitle={`Signed in as ${user.name} — you can add health and breeding records.`} />
+      <PageHeader title="Veterinary queue" subtitle={`Signed in as ${user.name} — you can add and update health records.`} />
 
-      <div className="mb-4 grid grid-cols-3 gap-3">
+      <div className="mb-4 grid grid-cols-2 gap-3">
         <StatTile label="Animals" value={animals.length} href="/animals" />
         <StatTile label="Due / overdue" value={due.length} tone={due.length ? "warn" : "muted"} />
-        <StatTile label="Expecting" value={pregnant} tone={pregnant ? "brand" : "muted"} href="/breeding" />
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2">
         <Disclosure label="New health record">
-          <Card className="p-4"><HealthRecordForm animals={opts} vaccineSuggestions={allSuggestions} /></Card>
-        </Disclosure>
-        <Disclosure label="New breeding record" tone="ghost">
-          <Card className="p-4"><BreedingForm dams={dams} sires={sires} showCost={false} /></Card>
+          <Card className="p-4"><HealthRecordForm animals={opts} vaccineSuggestions={allSuggestions} showCosts={false} /></Card>
         </Disclosure>
       </div>
 

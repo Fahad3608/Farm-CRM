@@ -59,7 +59,9 @@ Form field parsing uses helpers from `src/lib/form.ts`: `str`, `reqStr`, `dec`, 
 
 ### Permissions
 
-Role-based access via `src/lib/permissions.ts`. Four roles: `OWNER`, `MANAGER`, `VET`, `WORKER`. Check with `can.viewFinance(user.role)`, `can.manageAnimals(user.role)`, etc. VET is walled off from finances.
+Role-based access via `src/lib/permissions.ts`. Four roles: `OWNER`, `MANAGER`, `VET`, `WORKER`. Check with `can.viewFinance(user.role)`, `can.manageAnimals(user.role)`, etc.
+
+VET is the narrowest role and is meant to stay that way: the animal list and health records, nothing else. No money, no weights or milk yields, no feed, no breeding, no acquisition history. On an animal, `can.viewAnimalHistory` forces a vet to the Health tab whatever `?tab=` says, and the cost fields on `HealthRecordForm` are hidden from them — `saveHealthRecordAction` ignores those fields for a vet rather than trusting the form, so their save cannot wipe a cost the owner entered.
 
 ### Finance auto-linking
 
@@ -124,3 +126,13 @@ GitHub Actions workflow (`.github/workflows/ci.yml`) runs `npm run build` agains
 - Dates formatted with `fmtDate()` from the same file
 - Redirect calls in server actions must be outside try/catch blocks (Next.js throws on redirect)
 - Animal deletion detaches transactions (preserves ledger) before cascading the delete
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

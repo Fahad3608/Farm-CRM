@@ -16,12 +16,12 @@ const TYPES = [
 ];
 
 /**
- * The one form a vet uses. Cost fields are shown to whoever is entering the
- * visit (the vet bills it) but the finance pages stay owner-only.
+ * The one form a vet uses. Money stays out of their view entirely, so the
+ * owner or manager fills the cost in afterwards.
  */
 export default function HealthRecordForm({
-  animals, animalId, vaccineSuggestions = [], onDone,
-}: { animals: AnimalOpt[]; animalId?: string; vaccineSuggestions?: string[]; onDone?: () => void }) {
+  animals, animalId, vaccineSuggestions = [], showCosts = true, onDone,
+}: { animals: AnimalOpt[]; animalId?: string; vaccineSuggestions?: string[]; showCosts?: boolean; onDone?: () => void }) {
   const [type, setType] = useState("VACCINATION");
   const [selected, setSelected] = useState(animalId ?? animals[0]?.id ?? "");
   const today = new Date().toISOString().slice(0, 10);
@@ -84,8 +84,12 @@ export default function HealthRecordForm({
         </Field>
         <Field label="Vet name" hint="Leave blank if you are the vet signed in"><input name="vetName" className="input" /></Field>
 
-        <Field label="Medicine cost"><input name="medicineCost" inputMode="decimal" className="input" placeholder="0" /></Field>
-        <Field label="Vet / doctor fee"><input name="vetFee" inputMode="decimal" className="input" placeholder="0" /></Field>
+        {showCosts && (
+          <>
+            <Field label="Medicine cost"><input name="medicineCost" inputMode="decimal" className="input" placeholder="0" /></Field>
+            <Field label="Vet / doctor fee"><input name="vetFee" inputMode="decimal" className="input" placeholder="0" /></Field>
+          </>
+        )}
 
         <Field label="Notes" className="sm:col-span-2">
           <textarea name="notes" rows={2} className="input resize-y" />
