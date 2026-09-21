@@ -101,8 +101,11 @@ export const BREEDING_STATUS_LABEL: Record<BreedingStatus, string> = {
 export const ROUTES = ["IM (intramuscular)", "SC (subcutaneous)", "IV (intravenous)", "Oral", "Topical", "Intranasal", "Intramammary"];
 
 export const EXPENSE_CATEGORIES = [
+  "Feeding Cost", "Direct Purchase - Feed", "Vet Cost", "Worker Salary",
+  "Labour Cost", "Equipment", "Farm Rent", "Operational Cost", "Construction",
+  "Farm animal", "Loan - Javed", "Tenent Advance", "mics",
   "Feed", "Veterinary", "Medicine", "Animal Purchase", "Labour / Wages",
-  "Equipment", "Transport", "Utilities", "Farm Rent", "Caretaker Salary", "Shed / Maintenance",
+  "Transport", "Utilities", "Caretaker Salary", "Shed / Maintenance",
   "Construction Costs", "Material Cost (Equipment)",
   "Breeding / AI", "Batch Cost", "Insurance", "Other Expense",
 ];
@@ -123,13 +126,25 @@ export const CATEGORY_GROUPS = ["Operational", "Capital & Construction", "Animal
 export type CategoryGroup = (typeof CATEGORY_GROUPS)[number];
 
 export const DEFAULT_CATEGORY_GROUP: Record<string, CategoryGroup> = {
+  "Feeding Cost": "Operational",
+  "Direct Purchase - Feed": "Operational",
+  "Vet Cost": "Operational",
+  "Worker Salary": "Operational",
+  "Labour Cost": "Operational",
+  "Operational Cost": "Operational",
+  "Farm Rent": "Operational",
+  "Construction": "Capital & Construction",
+  "Equipment": "Capital & Construction",
+  "Farm animal": "Animal Purchases",
+  "Loan - Javed": "Other",
+  "Tenent Advance": "Other",
+  "mics": "Other",
   "Feed": "Operational",
   "Veterinary": "Operational",
   "Medicine": "Operational",
   "Labour / Wages": "Operational",
   "Transport": "Operational",
   "Utilities": "Operational",
-  "Farm Rent": "Operational",
   "Caretaker Salary": "Operational",
   "Construction Costs": "Capital & Construction",
   "Material Cost (Equipment)": "Capital & Construction",
@@ -137,7 +152,6 @@ export const DEFAULT_CATEGORY_GROUP: Record<string, CategoryGroup> = {
   "Batch Cost": "Operational",
   "Insurance": "Operational",
   "Animal Purchase": "Animal Purchases",
-  "Equipment": "Capital & Construction",
   "Shed / Maintenance": "Capital & Construction",
   "Other Expense": "Other",
 };
