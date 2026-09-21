@@ -16,6 +16,8 @@ export default {
         good: "rgb(var(--good) / <alpha-value>)",
         warn: "rgb(var(--warn) / <alpha-value>)",
         bad: "rgb(var(--bad) / <alpha-value>)",
+        info: "rgb(var(--info) / <alpha-value>)",
+        accent: "rgb(var(--accent) / <alpha-value>)",
       },
       borderRadius: { xl: "0.875rem", "2xl": "1.125rem" },
       fontFamily: { sans: ["var(--font-sans)", "system-ui", "sans-serif"] },
