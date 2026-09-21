@@ -131,6 +131,9 @@ model Animal {
   profilePhotoId String? @unique
   profilePhoto   Photo?  @relation("ProfilePhoto", fields: [profilePhotoId], references: [id], onDelete: SetNull)
 
+  purchaseBatchId String?
+  purchaseBatch   PurchaseBatch? @relation(fields: [purchaseBatchId], references: [id], onDelete: SetNull)
+
   photos          Photo[]          @relation("AnimalPhotos")
   healthRecords   HealthRecord[]
   feedLogs        FeedLog[]
@@ -145,6 +148,7 @@ model Animal {
 
   @@index([species, status])
   @@index([name])
+  @@index([purchaseBatchId])
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -441,4 +445,35 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Purchase batches — grouping animals bought on the same trip
+// with shared costs (transport, market fees, helpers) that are
+// divided equally among the animals in the batch.
+// ─────────────────────────────────────────────────────────────
+
+model PurchaseBatch {
+  id    String   @id @default(cuid())
+  name  String
+  date  DateTime
+  notes String?
+
+  animals Animal[]
+  costs   BatchCost[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model BatchCost {
+  id          String   @id @default(cuid())
+  batchId     String
+  batch       PurchaseBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  description String
+  amount      Decimal  @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([batchId])
 }

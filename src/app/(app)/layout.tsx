@@ -23,6 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/breeding", label: "Breeding", icon: Icon.breeding },
     !isVet && { href: "/feed", label: "Feed", icon: Icon.feed },
     can.viewFinance(user.role) && { href: "/finance", label: "Finance", icon: Icon.finance },
+    can.viewFinance(user.role) && { href: "/batches", label: "Batches", icon: Icon.batch },
     can.manageSettings(user.role) && { href: "/settings", label: "Settings", icon: Icon.settings },
   ].filter(Boolean) as { href: string; label: string; icon: (p: { className?: string }) => React.JSX.Element }[];
 
