@@ -4,16 +4,16 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { getSettings } from "@/lib/settings";
-import { Avatar, Badge, Card, Empty, Field, PageHeader, Section, StatTile } from "@/components/ui";
+import { Badge, Card, Empty, Field, PageHeader, Section, StatTile } from "@/components/ui";
 import Disclosure from "@/components/Disclosure";
 import ActionForm, { SubmitButton } from "@/components/ActionForm";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import { BarList, IncomeExpenseChart } from "@/components/charts";
-import { deleteFilteredTransactionsAction, deleteTransactionAction, linkTransactionAnimalAction, markNotAnimalSpecificAction, saveBulkTransactionsAction, saveTransactionAction } from "@/app/actions/finance";
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, SPECIES } from "@/lib/domain";
+import { deleteFilteredTransactionsAction, deleteSelectedTransactionsAction, deleteTransactionAction, linkTransactionAnimalAction, markNotAnimalSpecificAction, saveBulkTransactionsAction, saveTransactionAction } from "@/app/actions/finance";
+import LedgerTable, { type LedgerRow } from "@/components/LedgerTable";
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "@/lib/domain";
 import { fmtDate, money } from "@/lib/format";
 import { historicalRates, isoDate } from "@/lib/fx";
-import { Icon } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -130,6 +130,23 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
     if (showUsd) q.delete("fx"); else q.set("fx", "usd");
     return `/finance?${q.toString()}`;
   };
+
+  const ledgerRows: LedgerRow[] = txns.map((t) => {
+    const rate = showUsd ? usdRates?.get(isoDate(t.date)) : undefined;
+    return {
+      id: t.id,
+      date: t.date.toISOString(),
+      category: t.category,
+      description: t.description,
+      vendor: t.vendor,
+      type: t.type,
+      amount: t.amount.toString(),
+      isAuto: Boolean(t.healthRecordId || t.feedLogId),
+      animal: t.animal,
+      animalLabel: t.animalLabel,
+      usdText: showUsd ? (rate ? `≈ ${money(Number(t.amount) * rate, "USD")} on ${fmtDate(t.date)}` : "USD rate unavailable") : null,
+    };
+  });
 
   return (
     <>
@@ -333,66 +350,15 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
             </div>
           }
         >
-          {txns.length === 0 ? (
+          {ledgerRows.length === 0 ? (
             <Empty icon="🧾" title="No transactions in this period" />
           ) : (
-            <div className="scroll-x">
-              <table className="w-full min-w-[760px]">
-                <thead>
-                  <tr>
-                    <th className="th">Date</th><th className="th">Category</th><th className="th">Description</th>
-                    <th className="th">Animal</th><th className="th">Vendor</th><th className="th text-right">Amount</th><th className="th"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {txns.map((t) => (
-                    <tr key={t.id} className="row">
-                      <td className="td whitespace-nowrap">{fmtDate(t.date)}</td>
-                      <td className="td">
-                        <Badge tone={t.type === "INCOME" ? "good" : "muted"}>{t.category}</Badge>
-                      </td>
-                      <td className="td">{t.description ?? "—"}</td>
-                      <td className="td">
-                        {t.animal ? (
-                          <Link href={`/animals/${t.animal.id}?tab=costs`} className="inline-flex items-center gap-1.5 text-brand hover:underline">
-                            <Avatar photoId={t.animal.profilePhotoId} name={t.animal.name} size={22} emoji={SPECIES[t.animal.species].emoji} />
-                            {t.animal.name}
-                          </Link>
-                        ) : t.animalLabel ? (
-                          <span className="text-muted" title="This animal has been removed from the farm records">
-                            {t.animalLabel} <span className="text-[11.5px]">(removed)</span>
-                          </span>
-                        ) : "—"}
-                      </td>
-                      <td className="td text-muted">{t.vendor ?? "—"}</td>
-                      <td className={`td text-right font-semibold tabular-nums ${t.type === "INCOME" ? "text-good" : "text-bad"}`}>
-                        {t.type === "INCOME" ? "+" : "−"}{money(t.amount, settings.currency)}
-                        {showUsd && (() => {
-                          const rate = usdRates?.get(isoDate(t.date));
-                          return (
-                            <div className="text-[11px] font-normal text-muted">
-                              {rate ? `≈ ${money(Number(t.amount) * rate, "USD")} on ${fmtDate(t.date)}` : "USD rate unavailable"}
-                            </div>
-                          );
-                        })()}
-                      </td>
-                      <td className="td text-right">
-                        {t.healthRecordId || t.feedLogId ? (
-                          <span className="text-[11.5px] text-muted" title="Created from a health or feed record">auto</span>
-                        ) : (
-                          <form action={deleteTransactionAction}>
-                            <input type="hidden" name="id" value={t.id} />
-                            <ConfirmSubmit message="Delete this transaction?" className="rounded-lg p-1.5 text-muted hover:text-bad">
-                              <Icon.trash className="h-4 w-4" />
-                            </ConfirmSubmit>
-                          </form>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <LedgerTable
+              rows={ledgerRows}
+              currency={settings.currency}
+              deleteOne={deleteTransactionAction}
+              deleteSelected={deleteSelectedTransactionsAction}
+            />
           )}
 
           {lastPage > 1 && (
