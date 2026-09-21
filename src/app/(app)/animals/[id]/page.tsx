@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { getSettings } from "@/lib/settings";
-import { Avatar, Badge, Card, Empty, Section } from "@/components/ui";
+import { Avatar, Badge, Card, Empty, Section, StatTile } from "@/components/ui";
 import { Icon } from "@/components/icons";
 import Tabs from "@/components/Tabs";
 import Disclosure from "@/components/Disclosure";
@@ -77,6 +77,11 @@ export default async function AnimalPage({
 
   const totalSpent = spend.reduce((s, r) => s + Number(r._sum.amount ?? 0), 0);
   const totalEarned = Number(earned._sum.amount ?? 0);
+  // What's been put into this animal so far — purchase price plus every feed,
+  // health and breeding cost logged against it, net of any income recorded
+  // (e.g. milk sales entered manually). Both totals above already include the
+  // purchase/sale price, since those post to the ledger automatically.
+  const currentValue = totalSpent - totalEarned;
   const dueSoon = animal.healthRecords.filter((r) => r.nextDueDate && !r.followUpDone);
 
   const opt = (a: { id: string; name: string; tagId: string; species: string }) => ({ id: a.id, label: `${a.name} (${a.tagId})`, species: a.species });
@@ -115,6 +120,16 @@ export default async function AnimalPage({
             {animal.penOrLocation && <Badge>{animal.penOrLocation}</Badge>}
           </div>
         </div>
+        {showMoney && (
+          <div className="w-full sm:w-44">
+            <StatTile
+              label="Current value"
+              value={money(currentValue, settings.currency)}
+              hint="Invested so far, net of income"
+              href={`/animals/${animal.id}?tab=costs`}
+            />
+          </div>
+        )}
         {can.manageAnimals(user.role) && (
           <div className="flex gap-2">
             <Link href={`/animals/${animal.id}/edit`} className="btn-ghost btn-sm">Edit</Link>
