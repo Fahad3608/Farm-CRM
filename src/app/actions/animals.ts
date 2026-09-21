@@ -8,7 +8,7 @@ import { can } from "@/lib/permissions";
 import { bool, date, dec, enumOf, reqDate, reqStr, str } from "@/lib/form";
 import type { AcquisitionType, AnimalStatus, ReproStatus, Sex, Species } from "@prisma/client";
 
-const SPECIES_VALUES = ["COW", "BUFFALO", "GOAT", "SHEEP", "HORSE", "POULTRY", "OTHER"] as const;
+const SPECIES_VALUES = ["COW", "BUFFALO", "CALF", "HEIFER", "GOAT", "SHEEP", "HORSE", "POULTRY", "OTHER"] as const;
 const SEX_VALUES = ["MALE", "FEMALE"] as const;
 const STATUS_VALUES = ["ACTIVE", "SOLD", "DECEASED", "CULLED", "LOANED_OUT"] as const;
 const REPRO_VALUES = ["NOT_APPLICABLE", "OPEN", "BRED", "PREGNANT", "LACTATING", "DRY", "CASTRATED"] as const;
@@ -26,7 +26,6 @@ function readAnimal(fd: FormData) {
     color: str(fd, "color"),
     markings: str(fd, "markings"),
     hornStatus: str(fd, "hornStatus"),
-    microchip: str(fd, "microchip"),
     dateOfBirth: date(fd, "dateOfBirth"),
     ageIsEstimated: bool(fd, "ageIsEstimated"),
     dateJoined: reqDate(fd, "dateJoined", "Date joined the farm"),
@@ -39,7 +38,6 @@ function readAnimal(fd: FormData) {
     reproStatus: enumOf<ReproStatus>(fd, "reproStatus", REPRO_VALUES, "NOT_APPLICABLE"),
     expectedDueDate: date(fd, "expectedDueDate"),
     penOrLocation: str(fd, "penOrLocation"),
-    insuranceNo: str(fd, "insuranceNo"),
     notes: str(fd, "notes"),
     motherId: str(fd, "motherId"),
     fatherId: str(fd, "fatherId"),

@@ -11,17 +11,17 @@ type Option = { id: string; label: string };
 export type AnimalFormValues = {
   id?: string;
   tagId?: string; name?: string; species?: string; breed?: string | null; sex?: string;
-  color?: string | null; markings?: string | null; hornStatus?: string | null; microchip?: string | null;
+  color?: string | null; markings?: string | null; hornStatus?: string | null;
   dateOfBirth?: string; ageIsEstimated?: boolean; dateJoined?: string; acquisition?: string;
   sourceName?: string | null; purchasePrice?: string | null; status?: string;
   exitDate?: string; exitReason?: string | null; salePrice?: string | null; buyerName?: string | null;
   reproStatus?: string; expectedDueDate?: string; penOrLocation?: string | null;
-  insuranceNo?: string | null; notes?: string | null; motherId?: string | null; fatherId?: string | null;
+  notes?: string | null; motherId?: string | null; fatherId?: string | null;
 };
 
 const SPECIES = [
-  ["COW", "Cow 🐄"], ["BUFFALO", "Buffalo 🐃"], ["GOAT", "Goat 🐐"], ["SHEEP", "Sheep 🐑"],
-  ["HORSE", "Horse 🐎"], ["POULTRY", "Poultry 🐓"], ["OTHER", "Other 🐾"],
+  ["COW", "Cow 🐄"], ["BUFFALO", "Buffalo 🐃"], ["CALF", "Calf (Bachra/Bachri) 🐮"], ["HEIFER", "Heifer 🐄"],
+  ["GOAT", "Goat 🐐"], ["SHEEP", "Sheep 🐑"], ["HORSE", "Horse 🐎"], ["POULTRY", "Poultry 🐓"], ["OTHER", "Other 🐾"],
 ];
 const STATUS = [["ACTIVE", "On farm"], ["SOLD", "Sold"], ["DECEASED", "Deceased"], ["CULLED", "Culled"], ["LOANED_OUT", "Loaned out"]];
 const REPRO = [["NOT_APPLICABLE", "Not applicable"], ["OPEN", "Open (not pregnant)"], ["BRED", "Bred — awaiting confirmation"],
@@ -38,28 +38,44 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
 }
 
 export default function AnimalForm({
-  values = {}, mothers, fathers, showPrices, currency,
-}: { values?: AnimalFormValues; mothers: Option[]; fathers: Option[]; showPrices: boolean; currency: string }) {
+  values = {}, mothers, fathers, showPrices, currency, nextTagBySpecies,
+}: {
+  values?: AnimalFormValues; mothers: Option[]; fathers: Option[]; showPrices: boolean; currency: string;
+  /** Suggested next Tag/ID per species (e.g. { GOAT: "G014" }) — only used when adding a new animal. */
+  nextTagBySpecies?: Record<string, string>;
+}) {
   const [acquisition, setAcquisition] = useState(values.acquisition ?? "BORN_ON_FARM");
   const [status, setStatus] = useState(values.status ?? "ACTIVE");
   const [sex, setSex] = useState(values.sex ?? "FEMALE");
   const [repro, setRepro] = useState(values.reproStatus ?? "NOT_APPLICABLE");
+  const [species, setSpecies] = useState(values.species ?? "COW");
+  const [tagId, setTagId] = useState(values.tagId ?? nextTagBySpecies?.[species] ?? "");
+  const [tagTouched, setTagTouched] = useState(Boolean(values.id || values.tagId));
+
+  function handleSpeciesChange(next: string) {
+    setSpecies(next);
+    if (!values.id && !tagTouched) setTagId(nextTagBySpecies?.[next] ?? "");
+  }
 
   return (
     <ActionForm action={saveAnimalAction} className="flex flex-col gap-4">
       {values.id && <input type="hidden" name="id" value={values.id} />}
 
       <Group title="Identity">
-        <Field label="Tag / Farm ID *" hint="Must be unique — e.g. COW-001">
-          <input name="tagId" required defaultValue={values.tagId} className="input" placeholder="COW-001" />
-        </Field>
         <Field label="Name *">
           <input name="name" required defaultValue={values.name} className="input" placeholder="Cow One" />
         </Field>
         <Field label="Species *">
-          <select name="species" defaultValue={values.species ?? "COW"} className="input">
+          <select name="species" value={species} onChange={(e) => handleSpeciesChange(e.target.value)} className="input">
             {SPECIES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
+        </Field>
+        <Field label="Tag / Farm ID *" hint={values.id ? "Must be unique" : "Auto-filled from species — edit if you want a custom one"}>
+          <input
+            name="tagId" required value={tagId}
+            onChange={(e) => { setTagId(e.target.value); setTagTouched(true); }}
+            className="input" placeholder="G014"
+          />
         </Field>
         <Field label="Sex *">
           <select name="sex" value={sex} onChange={(e) => setSex(e.target.value)} className="input">
@@ -68,6 +84,7 @@ export default function AnimalForm({
           </select>
         </Field>
         <Field label="Breed"><input name="breed" defaultValue={values.breed ?? ""} className="input" placeholder="Sahiwal, Beetal…" /></Field>
+        <Field label="Colour"><input name="color" defaultValue={values.color ?? ""} className="input" placeholder="Black & white" /></Field>
         <Field label="Pen / location"><input name="penOrLocation" defaultValue={values.penOrLocation ?? ""} className="input" placeholder="Shed A" /></Field>
       </Group>
 
@@ -97,21 +114,18 @@ export default function AnimalForm({
         )}
       </Group>
 
-      <details className="card p-4" open={Boolean(values.color || values.markings || values.hornStatus || values.microchip || values.insuranceNo || values.motherId || values.fatherId)}>
+      <details className="card p-4" open={Boolean(values.markings || values.hornStatus || values.motherId || values.fatherId)}>
         <summary className="cursor-pointer list-none text-[13px] font-semibold uppercase tracking-wide text-muted">
-          More details (optional) — appearance, features & parentage
+          More details (optional) — features & parentage
         </summary>
 
         <div className="mt-4 flex flex-col gap-4">
-          <Group title="Appearance & features">
-            <Field label="Colour"><input name="color" defaultValue={values.color ?? ""} className="input" placeholder="Black & white" /></Field>
+          <Group title="Features">
             <Field label="Horns"><input name="hornStatus" defaultValue={values.hornStatus ?? ""} className="input" placeholder="Horned / polled / dehorned" list="horn-opts" /></Field>
             <datalist id="horn-opts"><option value="Horned" /><option value="Polled (naturally hornless)" /><option value="Dehorned" /></datalist>
             <Field label="Distinguishing marks" className="sm:col-span-2">
               <input name="markings" defaultValue={values.markings ?? ""} className="input" placeholder="White patch on forehead, torn left ear…" />
             </Field>
-            <Field label="Microchip / RFID"><input name="microchip" defaultValue={values.microchip ?? ""} className="input" /></Field>
-            <Field label="Insurance policy no."><input name="insuranceNo" defaultValue={values.insuranceNo ?? ""} className="input" /></Field>
           </Group>
 
           <Group title="Parentage">

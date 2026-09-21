@@ -51,6 +51,8 @@ model User {
 enum Species {
   COW
   BUFFALO
+  CALF    // Bachra (male) / Bachri (female) — tagged manually, not computed from age
+  HEIFER
   GOAT
   SHEEP
   HORSE
@@ -99,7 +101,6 @@ model Animal {
   color     String?
   markings  String?                  // distinguishing features
   hornStatus String?                 // horned / polled / dehorned
-  microchip String?
 
   dateOfBirth      DateTime?
   ageIsEstimated   Boolean  @default(false)
@@ -118,7 +119,6 @@ model Animal {
   expectedDueDate   DateTime?
 
   penOrLocation String?
-  insuranceNo   String?
   notes         String?
 
   // Lineage

@@ -155,8 +155,6 @@ export default async function AnimalPage({
               <Detail label="Colour" value={animal.color} />
               <Detail label="Horns" value={animal.hornStatus} />
               <Detail label="Distinguishing marks" value={animal.markings} />
-              <Detail label="Microchip / RFID" value={animal.microchip} />
-              <Detail label="Insurance no." value={animal.insuranceNo} />
             </dl>
           </Section>
 
