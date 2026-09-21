@@ -71,9 +71,12 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
     prisma.transaction.groupBy({ by: ["type"], where: { date: { gte: from, lte: to } }, _sum: { amount: true } }),
     prisma.transaction.groupBy({ by: ["type", "category"], where: { date: { gte: from, lte: to } }, _sum: { amount: true } }),
     prisma.animal.findMany({ where: { status: "ACTIVE" }, select: { id: true, name: true, tagId: true }, orderBy: { tagId: "asc" } }),
+    // Not bounded by the selected date range — this is meant to show total
+    // investment in each animal (including its purchase, however long ago),
+    // not just spend within whatever period the ledger happens to be filtered to.
     prisma.transaction.groupBy({
       by: ["animalId"],
-      where: { date: { gte: from, lte: to }, type: "EXPENSE", animalId: { not: null } },
+      where: { type: "EXPENSE", animalId: { not: null } },
       _sum: { amount: true },
     }),
     prisma.transaction.findMany({
@@ -352,7 +355,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
           />
         </Section>
 
-        <Section title="Cost per animal" subtitle={`Every animal on the farm · highest spend in this period first`} className="lg:col-span-2">
+        <Section title="Cost per animal" subtitle={`Every animal on the farm · total spend to date, highest first`} className="lg:col-span-2">
           <BarList
             items={costPerAnimal.map((a) => ({
               label: `${a.name} (${a.tagId})`,
