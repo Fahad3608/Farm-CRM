@@ -272,53 +272,44 @@ async function main() {
     if (a.batch) batchAnimalIds[a.batch].push(animal.id);
   }
 
-  // Batch 1 — June 13th
-  await prisma.purchaseBatch.create({
-    data: {
-      name: "June 13th — Mandi Batch 1",
-      date: new Date("2026-06-13"),
-      animals: { connect: batchAnimalIds.batch1.map((id) => ({ id })) },
-      costs: {
-        create: [
-          { description: "Parchi mandi", amount: 7500 },
-          { description: "Baba helper", amount: 1000 },
-          { description: "Karaya loader janwar", amount: 2500 },
-        ],
+  // Helper: create a batch with costs and matching finance entries.
+  async function seedBatch(name: string, date: Date, animalIds: string[], costs: { description: string; amount: number }[]) {
+    const batch = await prisma.purchaseBatch.create({
+      data: {
+        name, date,
+        animals: { connect: animalIds.map((id) => ({ id })) },
+        costs: { create: costs },
       },
-    },
-  });
+      include: { costs: true },
+    });
+    for (const cost of batch.costs) {
+      await prisma.transaction.create({
+        data: {
+          date, type: "EXPENSE", category: "Batch Cost", amount: cost.amount,
+          description: `${cost.description} — ${name}`,
+          notAnimalSpecific: true, batchCostId: cost.id, createdById: owner.id,
+        },
+      });
+    }
+  }
 
-  // Batch 2 — June 20th (bachris)
-  await prisma.purchaseBatch.create({
-    data: {
-      name: "June 20th — Mandi Batch 2 (Bachris)",
-      date: new Date("2026-06-20"),
-      animals: { connect: batchAnimalIds.batch2.map((id) => ({ id })) },
-      costs: {
-        create: [
-          { description: "Parchi mandi", amount: 6000 },
-          { description: "Baba helper", amount: 2000 },
-          { description: "Karaya loader", amount: 2500 },
-        ],
-      },
-    },
-  });
+  await seedBatch("June 13th — Mandi Batch 1", new Date("2026-06-13"), batchAnimalIds.batch1, [
+    { description: "Parchi mandi", amount: 7500 },
+    { description: "Baba helper", amount: 1000 },
+    { description: "Karaya loader janwar", amount: 2500 },
+  ]);
 
-  // Batch 3 — June 20th (goats)
-  await prisma.purchaseBatch.create({
-    data: {
-      name: "June 20th — Mandi Batch 2 (Goats)",
-      date: new Date("2026-06-20"),
-      animals: { connect: batchAnimalIds.batch3.map((id) => ({ id })) },
-      costs: {
-        create: [
-          { description: "Parchi mandi", amount: 900 },
-          { description: "Karaya loader", amount: 1000 },
-          { description: "Funds transfer", amount: 1500 },
-        ],
-      },
-    },
-  });
+  await seedBatch("June 20th — Mandi Batch 2 (Bachris)", new Date("2026-06-20"), batchAnimalIds.batch2, [
+    { description: "Parchi mandi", amount: 6000 },
+    { description: "Baba helper", amount: 2000 },
+    { description: "Karaya loader", amount: 2500 },
+  ]);
+
+  await seedBatch("June 20th — Mandi Batch 2 (Goats)", new Date("2026-06-20"), batchAnimalIds.batch3, [
+    { description: "Parchi mandi", amount: 900 },
+    { description: "Karaya loader", amount: 1000 },
+    { description: "Funds transfer", amount: 1500 },
+  ]);
 
   console.log("✔ Purchase batches seeded: 3 batches with 10 animals + 2 standalone purchases.");
   console.log("✔ Demo data loaded: 25 animals, health, feed, milk, breeding, finance and batch records.");

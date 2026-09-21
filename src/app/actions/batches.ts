@@ -47,11 +47,20 @@ export async function addBatchCostAction(_prev: State, fd: FormData): Promise<St
     const amount = dec(fd, "amount");
     if (!amount || amount <= 0) return { error: "Enter an amount greater than zero." };
 
-    await prisma.batchCost.create({
+    const description = reqStr(fd, "description", "Description");
+    const batch = await prisma.purchaseBatch.findUniqueOrThrow({ where: { id: batchId }, select: { name: true, date: true } });
+    const cost = await prisma.batchCost.create({ data: { batchId, description, amount } });
+
+    await prisma.transaction.create({
       data: {
-        batchId,
-        description: reqStr(fd, "description", "Description"),
+        date: batch.date,
+        type: "EXPENSE",
+        category: "Batch Cost",
         amount,
+        description: `${description} — ${batch.name}`,
+        notAnimalSpecific: true,
+        batchCostId: cost.id,
+        createdById: user.id,
       },
     });
   } catch (e) {
@@ -59,6 +68,7 @@ export async function addBatchCostAction(_prev: State, fd: FormData): Promise<St
   }
 
   revalidatePath(`/batches/${batchId}`);
+  revalidatePath("/finance");
   return { ok: "Cost added." };
 }
 
@@ -69,6 +79,7 @@ export async function deleteBatchCostAction(fd: FormData) {
   const cost = await prisma.batchCost.findUnique({ where: { id }, select: { batchId: true } });
   await prisma.batchCost.delete({ where: { id } });
   if (cost) revalidatePath(`/batches/${cost.batchId}`);
+  revalidatePath("/finance");
 }
 
 export async function addAnimalToBatchAction(_prev: State, fd: FormData): Promise<State> {

@@ -135,6 +135,7 @@ export async function deleteFilteredTransactionsAction(fd: FormData) {
       ...(type && type !== "ALL" ? { type: type as TxnType } : {}),
       healthRecordId: null,
       feedLogId: null,
+      batchCostId: null,
     },
   });
 
@@ -172,6 +173,7 @@ export async function editFilteredTransactionsAction(fd: FormData) {
       ...(type && type !== "ALL" ? { type: type as TxnType } : {}),
       healthRecordId: null,
       feedLogId: null,
+      batchCostId: null,
     },
     data,
   });
@@ -201,7 +203,7 @@ export async function bulkEditSelectedTransactionsAction(fd: FormData) {
   if (Object.keys(data).length === 0) return;
 
   await prisma.transaction.updateMany({
-    where: { id: { in: ids }, healthRecordId: null, feedLogId: null },
+    where: { id: { in: ids }, healthRecordId: null, feedLogId: null, batchCostId: null },
     data,
   });
 
@@ -218,7 +220,7 @@ export async function deleteSelectedTransactionsAction(fd: FormData) {
   if (ids.length === 0) return;
 
   await prisma.transaction.deleteMany({
-    where: { id: { in: ids }, healthRecordId: null, feedLogId: null },
+    where: { id: { in: ids }, healthRecordId: null, feedLogId: null, batchCostId: null },
   });
 
   revalidatePath("/finance");
@@ -230,8 +232,8 @@ export async function deleteTransactionAction(fd: FormData) {
   if (!can.editFinance(user.role)) throw new Error("Not permitted.");
   const id = reqStr(fd, "id");
   const txn = await prisma.transaction.findUnique({ where: { id } });
-  if (txn?.healthRecordId || txn?.feedLogId) {
-    throw new Error("This entry comes from a health or feed record — delete it there instead.");
+  if (txn?.healthRecordId || txn?.feedLogId || txn?.batchCostId) {
+    throw new Error("This entry comes from a health, feed, or batch cost record — delete it there instead.");
   }
   await prisma.transaction.delete({ where: { id } });
   revalidatePath("/finance");
