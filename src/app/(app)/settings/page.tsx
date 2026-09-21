@@ -174,11 +174,17 @@ export default async function SettingsPage() {
         )}
 
         {can.editFinance(me.role) && (
+          <div id="expense-groups" className="scroll-mt-4 lg:col-span-2">
           <Section
             title="Group your expense categories"
-            subtitle="Powers Finance's Expenses by group — pick which bucket each category rolls up into"
+            subtitle="Controls the monthly expense breakdown in Finance"
             className="lg:col-span-2"
           >
+            <p className="border-b border-line px-4 py-3 text-[13px] text-muted">
+              Operational means running costs such as feed, wages, rent and veterinary care.
+              Capital &amp; Construction covers equipment and building work. Animal Purchases covers livestock.
+              Use Other when the purpose needs review. Changes regroup existing entries in every month.
+            </p>
             <ul className="divide-y divide-line">
               {allExpenseCategories.map((name) => (
                 <li key={name} className="flex items-center justify-between gap-3 px-4 py-2.5">
@@ -191,6 +197,7 @@ export default async function SettingsPage() {
               ))}
             </ul>
           </Section>
+          </div>
         )}
 
         {can.editFinance(me.role) && (

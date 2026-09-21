@@ -35,8 +35,10 @@ type AnimalOpt = { id: string; name: string; tagId: string };
  * in place instead of deleting and re-adding it.
  */
 export default function LedgerTable({
-  rows, currency, animals, categories, payers, deleteOne, deleteSelected, bulkEditSelected, saveTransaction,
+  rows, currency, animals, categories, payers, deleteOne, deleteSelected, bulkEditSelected, saveTransaction, categorizeExpense, expenseCategories,
 }: {
+  categorizeExpense: (prev: ActionState, fd: FormData) => Promise<ActionState>;
+  expenseCategories: string[];
   rows: LedgerRow[];
   currency: string;
   animals: AnimalOpt[];
@@ -99,6 +101,7 @@ export default function LedgerTable({
 
   return (
     <>
+      <datalist id="expense-category-options">{expenseCategories.map(category => <option key={category} value={category} />)}</datalist>
       {selected.size > 0 && (
         <div className="border-b border-line bg-surface2/60 px-4 py-2.5">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -178,6 +181,19 @@ export default function LedgerTable({
                   <td className="td whitespace-nowrap">{fmtDate(t.date)}</td>
                   <td className="td">
                     <Badge tone={t.type === "INCOME" ? "good" : "muted"}>{t.category}</Badge>
+                    {t.type === "EXPENSE" && !t.isAuto && (
+                      <details className="mt-1" key={`${t.id}:${t.category}`}>
+                        <summary className="cursor-pointer text-[12px] text-brand">Change category</summary>
+                        <ActionForm action={categorizeExpense} className="mt-2 min-w-48 space-y-2">
+                          <input type="hidden" name="id" value={t.id} />
+                          <Field label="Expense category">
+                            <input name="category" required defaultValue={t.category} list="expense-category-options" className="input" />
+                          </Field>
+                          <SubmitButton className="btn-primary btn-sm">Save category</SubmitButton>
+                        </ActionForm>
+                      </details>
+                    )}
+                    {t.type === "EXPENSE" && t.isAuto && <span className="mt-1 block text-[11px] text-muted">Category managed by linked record</span>}
                   </td>
                   <td className="td">{t.description ?? "—"}</td>
                   <td className="td">

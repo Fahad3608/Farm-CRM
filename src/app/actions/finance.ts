@@ -252,3 +252,25 @@ export async function deleteTransactionAction(fd: FormData) {
   revalidatePath("/finance");
   revalidatePath("/dashboard");
 }
+
+/** Change only a manual expense's category, preserving its other fields. */
+export async function categorizeExpenseAction(_prev: State, fd: FormData): Promise<State> {
+  const user = await requireUser();
+  if (!can.editFinance(user.role)) return { error: "Not permitted." };
+  try {
+    const id = reqStr(fd, "id");
+    const category = reqStr(fd, "category", "Category");
+    const result = await prisma.transaction.updateMany({
+      where: { id, type: "EXPENSE", healthRecordId: null, feedLogId: null, batchCostId: null, saleId: null },
+      data: { category },
+    });
+    if (!result.count) return { error: "This expense is unavailable or managed by a linked record." };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Could not change the category." };
+  }
+  revalidatePath("/finance");
+  revalidatePath("/dashboard");
+  revalidatePath("/animals", "layout");
+  revalidatePath("/settings");
+  return { ok: "Expense category updated." };
+}

@@ -9,7 +9,10 @@ import Disclosure from "@/components/Disclosure";
 import ActionForm, { SubmitButton } from "@/components/ActionForm";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import { BarList, IncomeExpenseChart } from "@/components/charts";
-import { bulkEditSelectedTransactionsAction, deleteFilteredTransactionsAction, deleteSelectedTransactionsAction, deleteTransactionAction, editFilteredTransactionsAction, linkTransactionAnimalAction, markNotAnimalSpecificAction, saveBulkTransactionsAction, saveTransactionAction } from "@/app/actions/finance";
+import { categorizeExpenseAction, bulkEditSelectedTransactionsAction, deleteFilteredTransactionsAction, deleteSelectedTransactionsAction, deleteTransactionAction, editFilteredTransactionsAction, linkTransactionAnimalAction, markNotAnimalSpecificAction, saveBulkTransactionsAction, saveTransactionAction } from "@/app/actions/finance";
+import ExpenseCategoryManager from "@/components/ExpenseCategoryManager";
+import MonthlyExpenses from "@/components/MonthlyExpenses";
+import { monthlyExpenses } from "@/lib/monthlyExpenses";
 import LedgerTable, { type LedgerRow } from "@/components/LedgerTable";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, NO_PAYER, categoryGroupOf } from "@/lib/domain";
 import { fmtDate, money } from "@/lib/format";
@@ -65,7 +68,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
   const page = Math.max(1, Number(sp.page ?? 1) || 1);
 
   const needsReviewWhere = { type: "EXPENSE" as const, animalId: null, feedLogId: null, notAnimalSpecific: false };
-  const [txns, txnCount, deletableCount, totals, byCategory, animals, perAnimal, needsReview, needsReviewCount, dbCategories, dbPayers, investmentByPayer] = await Promise.all([
+  const [txns, txnCount, deletableCount, totals, byCategory, animals, perAnimal, needsReview, needsReviewCount, dbCategories, dbPayers, investmentByPayer, usedCategories] = await Promise.all([
     prisma.transaction.findMany({
       where,
       orderBy: { date: "desc" },
@@ -75,8 +78,8 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
     }),
     prisma.transaction.count({ where }),
     prisma.transaction.count({ where: { ...where, healthRecordId: null, feedLogId: null, batchCostId: null, saleId: null } }),
-    prisma.transaction.groupBy({ by: ["type"], where: { date: { gte: from, lte: to } }, _sum: { amount: true } }),
-    prisma.transaction.groupBy({ by: ["type", "category"], where: { date: { gte: from, lte: to } }, _sum: { amount: true } }),
+    prisma.transaction.groupBy({ by: ["type"], where, _sum: { amount: true } }),
+    prisma.transaction.groupBy({ by: ["type", "category"], where, _sum: { amount: true } }),
     prisma.animal.findMany({ where: { status: "ACTIVE" }, select: { id: true, name: true, tagId: true }, orderBy: { tagId: "asc" } }),
     // Not bounded by the selected date range — this is meant to show total
     // investment in each animal (including its purchase, however long ago),
@@ -97,6 +100,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
     // Investment is cumulative, so it's totalled over everything ever spent
     // rather than the ledger's current date filter.
     prisma.transaction.groupBy({ by: ["paidBy"], where: { type: "EXPENSE" }, _sum: { amount: true }, _count: true }),
+    prisma.transaction.findMany({ select: { category: true, type: true }, distinct: ["category", "type"] }),
   ]);
 
   // Every category input on this page offers the same list: the built-in
@@ -106,7 +110,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
   const allCategories = [...new Set([
     ...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES,
     ...dbCategories.map((c) => c.name),
-    ...byCategory.map((c) => c.category),
+    ...usedCategories.map((c) => c.category),
   ])].sort();
 
   // Everyone who could be picked as a payer: the ones set up in Settings plus
@@ -131,6 +135,11 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
   // built-in default) so related costs can be totalled and drilled into
   // together instead of one category at a time.
   const assignedGroups = new Map(dbCategories.filter((c) => c.type === "EXPENSE" && c.group).map((c) => [c.name, c.group!]));
+  const expenseCategories = [...new Set([
+    ...EXPENSE_CATEGORIES,
+    ...dbCategories.filter(c => c.type === "EXPENSE").map(c => c.name),
+    ...usedCategories.filter(c => c.type === "EXPENSE").map(c => c.category),
+  ])].sort();
   const groupTotals = new Map<string, { total: number; categories: string[] }>();
   for (const c of byCategory) {
     if (c.type !== "EXPENSE") continue;
@@ -145,6 +154,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       const q = toParams(sp);
       q.delete("category");
       q.delete("page");
+      q.set("type", "EXPENSE");
       v.categories.forEach((c) => q.append("category", c));
       return { label, value: v.total, display: money(v.total, settings.currency), href: `/finance?${q.toString()}` };
     })
@@ -158,31 +168,20 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
     .map((a) => ({ ...a, spend: perAnimalSpend.get(a.id) ?? 0 }))
     .sort((a, b) => b.spend - a.spend);
 
-  // One bucket per month across the whole selected range. Only the most recent
-  // twelve are charted, so a wide range still shows current activity instead of
-  // its oldest — and never an empty chart.
-  const MAX_BARS = 12;
-  const buckets: { key: string; month: string; income: number; expense: number }[] = [];
-  const cursor = new Date(from.getFullYear(), from.getMonth(), 1);
-  const lastMonth = new Date(to.getFullYear(), to.getMonth(), 1);
-  while (cursor <= lastMonth && buckets.length < 1200) {
-    buckets.push({
-      key: `${cursor.getFullYear()}-${cursor.getMonth()}`,
-      month: cursor.toLocaleDateString(undefined, { month: "short", year: "2-digit" }),
-      income: 0, expense: 0,
-    });
-    cursor.setMonth(cursor.getMonth() + 1);
-  }
-  const bucketByKey = new Map(buckets.map((b) => [b.key, b]));
-  const allInRange = await prisma.transaction.findMany({ where: { date: { gte: from, lte: to } }, select: { date: true, type: true, amount: true } });
+  const allInRange = await prisma.transaction.findMany({ where, select: { date: true, type: true, amount: true, category: true } });
+  const months = monthlyExpenses(allInRange, assignedGroups);
+  const buckets = new Map<string, { month: string; income: number; expense: number }>();
   for (const t of allInRange) {
-    const d = new Date(t.date);
-    const b = bucketByKey.get(`${d.getFullYear()}-${d.getMonth()}`);
-    if (b) b[t.type === "INCOME" ? "income" : "expense"] += Number(t.amount);
+    const key = t.date.toISOString().slice(0, 7);
+    const b = buckets.get(key) ?? {
+      month: t.date.toLocaleDateString(undefined, { month: "short", year: "2-digit", timeZone: "UTC" }),
+      income: 0, expense: 0,
+    };
+    b[t.type === "INCOME" ? "income" : "expense"] += Number(t.amount);
+    buckets.set(key, b);
   }
-  const chartBuckets = buckets.slice(-MAX_BARS);
-  const chartSubtitle =
-    buckets.length > MAX_BARS ? `Most recent ${MAX_BARS} months of the selected range` : "By month";
+  const chartBuckets = [...buckets].sort(([a], [b]) => a.localeCompare(b)).slice(-12).map(([, b]) => b);
+  const chartSubtitle = "Matching entries · up to 12 months with activity";
 
   const payerHref = (name: string) => {
     const q = toParams(sp);
@@ -238,14 +237,61 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
 
   return (
     <>
-      <PageHeader title="Finances" subtitle={`${fmtDate(from)} — ${fmtDate(to)}`} />
+      <PageHeader title="Finances" subtitle={`${fmtDate(from)} — ${fmtDate(to)} · totals match your filters`} />
+
+      <form className="mb-4 flex flex-wrap items-end gap-2" action="/finance">
+        <Field label="From"><input type="date" name="from" defaultValue={dateVal(from)} className="input w-auto" /></Field>
+        <Field label="To"><input type="date" name="to" defaultValue={dateVal(to)} className="input w-auto" /></Field>
+        <Field label="Type">
+          <select name="type" defaultValue={sp.type ?? "ALL"} className="input w-auto">
+            <option value="ALL">All</option><option value="INCOME">Income</option><option value="EXPENSE">Expense</option>
+          </select>
+        </Field>
+        <Field label="Category" hint="Pick one or more — leave none checked for all">
+          <details className="relative">
+            <summary className="input w-auto cursor-pointer list-none select-none">
+              {selectedCategories.length === 0
+                ? "All categories"
+                : selectedCategories.length === 1
+                ? selectedCategories[0]
+                : `${selectedCategories.length} categories selected`}
+            </summary>
+            <div className="absolute z-10 mt-1 max-h-64 w-64 overflow-y-auto rounded-xl border border-line bg-surface p-2 shadow-lg">
+              {allCategories.map((c) => (
+                <label key={c} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13.5px] hover:bg-surface2">
+                  <input
+                    type="checkbox" name="category" value={c}
+                    defaultChecked={selectedCategories.includes(c)}
+                    className="h-4 w-4 shrink-0 accent-[rgb(var(--brand))]"
+                  />
+                  <span className="truncate">{c}</span>
+                </label>
+              ))}
+            </div>
+          </details>
+        </Field>
+        <Field label="Paid by">
+          <select name="paidBy" defaultValue={payerFilter} className="input w-auto">
+            <option value="">Anyone</option>
+            {allPayers.map((p) => <option key={p} value={p}>{p}</option>)}
+            <option value={NO_PAYER}>Not recorded</option>
+          </select>
+        </Field>
+        <button className="btn-ghost">Apply</button>
+      </form>
 
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile label="Income" value={money(income, settings.currency)} tone="good" />
         <StatTile label="Expenses" value={money(expense, settings.currency)} tone="bad" />
-        <StatTile label="Net" value={money(income - expense, settings.currency)} tone={income - expense >= 0 ? "good" : "bad"} />
-        <StatTile label="Entries" value={txnCount} hint="Matching your filters" />
+        <StatTile label="Income less expenses" hint="Recorded entries, not a profit calculation" value={money(income - expense, settings.currency)} tone={income - expense >= 0 ? "good" : "bad"} />
+        <StatTile label="Running costs" value={money(groupTotals.get("Operational")?.total ?? 0, settings.currency)} hint="Day-to-day portion of expenses" />
       </div>
+
+      <div className="mb-5">
+        <MonthlyExpenses months={months} currency={settings.currency} params={toParams({ ...sp, from: dateVal(from), to: dateVal(to) })} />
+      </div>
+
+      <ExpenseCategoryManager categories={expenseCategories.map(name => ({ name, group: categoryGroupOf(name, assignedGroups) }))} />
 
       {needsReviewCount > 0 && (
         <div className="mb-4">
@@ -362,48 +408,38 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
         </Disclosure>
       </div>
 
-      <form className="mb-4 flex flex-wrap items-end gap-2" action="/finance">
-        <Field label="From"><input type="date" name="from" defaultValue={dateVal(from)} className="input w-auto" /></Field>
-        <Field label="To"><input type="date" name="to" defaultValue={dateVal(to)} className="input w-auto" /></Field>
-        <Field label="Type">
-          <select name="type" defaultValue={sp.type ?? "ALL"} className="input w-auto">
-            <option value="ALL">All</option><option value="INCOME">Income</option><option value="EXPENSE">Expense</option>
-          </select>
-        </Field>
-        <Field label="Category" hint="Pick one or more — leave none checked for all">
-          <details className="relative">
-            <summary className="input w-auto cursor-pointer list-none select-none">
-              {selectedCategories.length === 0
-                ? "All categories"
-                : selectedCategories.length === 1
-                ? selectedCategories[0]
-                : `${selectedCategories.length} categories selected`}
-            </summary>
-            <div className="absolute z-10 mt-1 max-h-64 w-64 overflow-y-auto rounded-xl border border-line bg-surface p-2 shadow-lg">
-              {allCategories.map((c) => (
-                <label key={c} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13.5px] hover:bg-surface2">
-                  <input
-                    type="checkbox" name="category" value={c}
-                    defaultChecked={selectedCategories.includes(c)}
-                    className="h-4 w-4 shrink-0 accent-[rgb(var(--brand))]"
-                  />
-                  <span className="truncate">{c}</span>
-                </label>
-              ))}
-            </div>
-          </details>
-        </Field>
-        <Field label="Paid by">
-          <select name="paidBy" defaultValue={payerFilter} className="input w-auto">
-            <option value="">Anyone</option>
-            {allPayers.map((p) => <option key={p} value={p}>{p}</option>)}
-            <option value={NO_PAYER}>Not recorded</option>
-          </select>
-        </Field>
-        <button className="btn-ghost">Apply</button>
-      </form>
-
       <div className="grid items-start gap-4 lg:grid-cols-2">
+        <Section title="Income vs expenses" subtitle={chartSubtitle} className="lg:col-span-2">
+          <IncomeExpenseChart data={chartBuckets} currency={settings.currency} />
+        </Section>
+
+        <Section title="Expenses by group" subtitle="Click a group to see and edit just those categories · set groups in Settings" className="lg:col-span-2">
+          <BarList items={expenseGroups} accent="b" emptyText="No expenses in this period." />
+        </Section>
+
+        <Section title="Expenses by category">
+          <BarList
+            items={byCategory.filter((c) => c.type === "EXPENSE")
+              .map((c) => ({ label: c.category, value: Number(c._sum.amount ?? 0), display: money(c._sum.amount, settings.currency) }))
+              .sort((a, b) => b.value - a.value)}
+            accent="b"
+            emptyText="No expenses in this period."
+          />
+        </Section>
+
+        <Section title="Income by category">
+          <BarList
+            items={byCategory.filter((c) => c.type === "INCOME")
+              .map((c) => ({ label: c.category, value: Number(c._sum.amount ?? 0), display: money(c._sum.amount, settings.currency) }))
+              .sort((a, b) => b.value - a.value)}
+            accent="a"
+            emptyText="No income in this period."
+          />
+        </Section>
+
+        <details className="lg:col-span-2">
+          <summary className="cursor-pointer py-3 font-semibold">Lifetime totals — funding and animal costs</summary>
+          <div className="grid gap-4">
         <Section
           title="Investment by payer"
           subtitle={`Every expense ever recorded, by whose money it was · ${money(investedTotal, settings.currency)} in total`}
@@ -413,16 +449,6 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
             <Empty icon="🤝" title="Nothing recorded yet" hint="Put a name in the “Paid by” field on an entry and each person's total builds up here." />
           ) : (
             <>
-              <BarList
-                items={investmentRows.map((r) => ({
-                  label: r.payer ?? "Not recorded",
-                  value: r.total,
-                  display: money(r.total, settings.currency),
-                  href: payerHref(r.payer ?? NO_PAYER),
-                  hint: `${investedTotal > 0 ? Math.round((r.total / investedTotal) * 100) : 0}% of all spending · ${r.count} entr${r.count === 1 ? "y" : "ies"}`,
-                }))}
-                emptyText="No expenses recorded yet."
-              />
               <div className="scroll-x border-t border-line">
                 <table className="w-full min-w-[420px]">
                   <thead>
@@ -467,34 +493,6 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
           )}
         </Section>
 
-        <Section title="Income vs expenses" subtitle={chartSubtitle} className="lg:col-span-2">
-          <IncomeExpenseChart data={chartBuckets} currency={settings.currency} />
-        </Section>
-
-        <Section title="Expenses by group" subtitle="Click a group to see and edit just those categories · set groups in Settings" className="lg:col-span-2">
-          <BarList items={expenseGroups} accent="b" emptyText="No expenses in this period." />
-        </Section>
-
-        <Section title="Expenses by category">
-          <BarList
-            items={byCategory.filter((c) => c.type === "EXPENSE")
-              .map((c) => ({ label: c.category, value: Number(c._sum.amount ?? 0), display: money(c._sum.amount, settings.currency) }))
-              .sort((a, b) => b.value - a.value)}
-            accent="b"
-            emptyText="No expenses in this period."
-          />
-        </Section>
-
-        <Section title="Income by category">
-          <BarList
-            items={byCategory.filter((c) => c.type === "INCOME")
-              .map((c) => ({ label: c.category, value: Number(c._sum.amount ?? 0), display: money(c._sum.amount, settings.currency) }))
-              .sort((a, b) => b.value - a.value)}
-            accent="a"
-            emptyText="No income in this period."
-          />
-        </Section>
-
         <Section title="Cost per animal" subtitle={`Every animal on the farm · total spend to date, highest first`} className="lg:col-span-2">
           <BarList
             items={costPerAnimal.map((a) => ({
@@ -506,6 +504,10 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
           />
         </Section>
 
+          </div>
+        </details>
+
+        <div id="ledger" className="scroll-mt-4 lg:col-span-2">
         <Section
           title="Ledger"
           subtitle={pageInfo}
@@ -569,6 +571,8 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
             <Empty icon="🧾" title="No transactions in this period" />
           ) : (
             <LedgerTable
+              categorizeExpense={categorizeExpenseAction}
+              expenseCategories={expenseCategories}
               rows={ledgerRows}
               currency={settings.currency}
               animals={animals}
@@ -593,6 +597,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
             </nav>
           )}
         </Section>
+        </div>
       </div>
     </>
   );
