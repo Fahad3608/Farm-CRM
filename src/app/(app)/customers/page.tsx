@@ -68,7 +68,7 @@ export default async function CustomersPage() {
         />
         <StatTile
           label="Expected per month"
-          value={money(perDay * DAYS_PER_MONTH, settings.currency)}
+          value={money(Math.round(perDay * DAYS_PER_MONTH), settings.currency)}
           hint={`≈ ${DAYS_PER_MONTH} days`}
         />
         <StatTile
@@ -119,7 +119,7 @@ export default async function CustomersPage() {
                 <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[12.5px]">
                   <div>
                     <div className="text-muted">Per month</div>
-                    <div className="font-semibold">{daily > 0 ? money(daily * DAYS_PER_MONTH, settings.currency) : "—"}</div>
+                    <div className="font-semibold">{daily > 0 ? money(Math.round(daily * DAYS_PER_MONTH), settings.currency) : "—"}</div>
                   </div>
                   <div>
                     <div className="text-muted">This month</div>

@@ -108,7 +108,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile label="Expected per day" value={perDay > 0 ? money(perDay, settings.currency) : "—"} hint="Usual quantity × price" />
-        <StatTile label="Expected per month" value={perDay > 0 ? money(perDay * DAYS_PER_MONTH, settings.currency) : "—"} hint={`≈ ${DAYS_PER_MONTH} days`} />
+        <StatTile label="Expected per month" value={perDay > 0 ? money(Math.round(perDay * DAYS_PER_MONTH), settings.currency) : "—"} hint={`≈ ${DAYS_PER_MONTH} days`} />
         <StatTile label="This month" value={money(thisMonth, settings.currency)} tone="good" hint="Deliveries actually logged" />
         <StatTile label="All time" value={money(allTime, settings.currency)} hint={`${sales.length} deliver${sales.length === 1 ? "y" : "ies"}`} />
       </div>
@@ -147,7 +147,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                       <div className="flex shrink-0 items-center gap-2">
                         <div className="text-right">
                           <div className="text-[12px] text-muted">per month</div>
-                          <div className="tabular-nums font-semibold">{daily > 0 ? money(daily * DAYS_PER_MONTH, settings.currency) : "—"}</div>
+                          <div className="tabular-nums font-semibold">{daily > 0 ? money(Math.round(daily * DAYS_PER_MONTH), settings.currency) : "—"}</div>
                         </div>
                         {canEdit && (
                           <form action={deleteRateAction}>

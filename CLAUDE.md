@@ -29,6 +29,7 @@ src/
     (app)/           # Authenticated routes (layout has sidebar + nav)
       animals/       # Animal list, detail (/[id]), edit, new
       batches/       # Purchase batch list and detail
+      customers/     # Buyers, their rate cards and deliveries
       breeding/      # Breeding records
       dashboard/     # Owner/manager dashboard
       feed/          # Feed logs
@@ -65,7 +66,15 @@ VET is the narrowest role and is meant to stay that way: the animal list and hea
 
 ### Finance auto-linking
 
-Health records, feed logs, and batch costs auto-create linked `Transaction` entries via unique FKs (`healthRecordId`, `feedLogId`, `batchCostId`). These are protected from manual edit/delete in finance actions. The `notAnimalSpecific` flag distinguishes farm-wide costs from unlinked animal expenses.
+Health records, feed logs, batch costs and customer deliveries auto-create linked `Transaction` entries via unique FKs (`healthRecordId`, `feedLogId`, `batchCostId`, `saleId`). These are protected from manual edit/delete in finance actions. The `notAnimalSpecific` flag distinguishes farm-wide costs from unlinked animal expenses.
+
+### Customers & deliveries
+
+A `Customer` holds one `CustomerRate` per product they take (unit, unit price, and an optional usual `dailyQty`). Recording a delivery copies the product, unit and price onto the `Sale` row, so changing a rate later never rewrites what was already sold. Deliveries can be logged for one day or for every day in a range — that's how a month of milk is normally settled. Monthly rollups only render months that have deliveries; empty months are noise.
+
+### Paid by / investment
+
+Every `Transaction` can name whose money it was (`paidBy`, free text). `Payer` is the managed suggestion list in Settings — renaming one updates every entry saved under the old name, deleting one leaves entries alone, exactly like `Category`. Finance filters by payer (`NO_PAYER` from `src/lib/domain.ts` selects entries with none) and totals each person's investment across all expenses ever recorded.
 
 ### UI components
 
@@ -106,6 +115,8 @@ CI runs migrations against an empty database, so a data migration that reads exi
 - `Animal` — core entity, linked to health, feed, milk, weight, breeding, photos, transactions, and optionally a `PurchaseBatch`
 - `Transaction` — single ledger for all income/expenses; auto-linked from health/feed/batch cost records via unique FKs
 - `PurchaseBatch` + `BatchCost` — groups animals bought on the same trip with shared costs
+- `Customer` + `CustomerRate` + `Sale` — buyers, what they pay per unit, and each delivery (auto-linked to income)
+- `Payer` — who funds the farm; suggestion list behind `Transaction.paidBy`
 - `HealthRecord`, `FeedLog`, `MilkRecord`, `WeightRecord` — daily tracking
 - `BreedingRecord` — dam/sire tracking with status workflow
 - `Photo` — binary storage with thumbnail, linked to animal
