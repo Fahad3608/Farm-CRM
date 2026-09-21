@@ -17,6 +17,7 @@ Livestock farm management system. Tracks animals, health records, breeding, feed
 ```bash
 npm run dev          # Start dev server
 npm run build        # prisma generate + scripts/migrate-deploy.mjs + next build
+npm test             # Finance rollup and drill-down regression tests
 npm run lint         # eslint . (next lint was removed in Next 16)
 npx tsc --noEmit     # Typecheck — CI runs this before the build
 npm run db:seed      # Seed demo data (set SEED_DEMO_DATA=true)
@@ -85,6 +86,10 @@ Health records, feed logs, batch costs and customer deliveries auto-create linke
 ### Customers & deliveries
 
 A `Customer` holds one `CustomerRate` per product they take (unit, unit price, and an optional usual `dailyQty`). Recording a delivery copies the product, unit and price onto the `Sale` row, so changing a rate later never rewrites what was already sold. Deliveries can be logged for one day or for every day in a range — that's how a month of milk is normally settled. Monthly rollups only render months that have deliveries; empty months are noise.
+
+### Monthly finance outcomes
+
+Finance filters apply consistently to the summary, charts, monthly expense groups and ledger. `monthlyExpenses` in `src/lib/monthlyExpenses.ts` groups expense entries by UTC ledger month, using existing category assignments. Only months containing expenses render; category links preserve the payer and selected date boundaries. `MonthlyExpenses` shows running costs, equipment/construction, animal purchases and other costs separately. Lifetime funding and animal costs are in a separate expandable section and remain unfiltered. Finance includes an inline expense-category manager (create categories and assign groups), plus a category-only editor on each manual expense in the ledger. Auto-linked expenses remain protected. Category assignments in Finance or Settings affect all historical months; the monthly view never rewrites transaction categories.
 
 ### Paid by / investment
 
