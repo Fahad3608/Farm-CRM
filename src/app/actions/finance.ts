@@ -44,6 +44,54 @@ export async function saveTransactionAction(_prev: State, fd: FormData): Promise
   return { ok: "Transaction saved." };
 }
 
+/**
+ * Records several transactions at once from a pasted list — e.g. a spreadsheet
+ * of startup or one-off costs — sharing one date, type, category and animal.
+ * Each line is "description, amount"; all-or-nothing so a typo on one line
+ * doesn't leave a half-entered batch.
+ */
+export async function saveBulkTransactionsAction(_prev: State, fd: FormData): Promise<State> {
+  const user = await requireUser();
+  if (!can.editFinance(user.role)) return { error: "Not permitted." };
+
+  try {
+    const date = reqDate(fd, "date", "Date");
+    const type = enumOf<TxnType>(fd, "type", ["INCOME", "EXPENSE"] as const, "EXPENSE");
+    const category = reqStr(fd, "category", "Category");
+    const animalId = str(fd, "animalId");
+    const linesRaw = reqStr(fd, "lines", "Expenses");
+
+    const rows = linesRaw
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((line, i) => {
+        const idx = line.lastIndexOf(",");
+        if (idx === -1) throw new Error(`Line ${i + 1} needs a comma before the amount: "${line}"`);
+        const description = line.slice(0, idx).trim();
+        const amount = Number(line.slice(idx + 1).trim().replace(/,/g, ""));
+        if (!description) throw new Error(`Line ${i + 1} is missing a description.`);
+        if (!Number.isFinite(amount) || amount <= 0) throw new Error(`Line ${i + 1} has an invalid amount: "${line}"`);
+        return { description, amount };
+      });
+
+    if (rows.length === 0) return { error: "Add at least one line." };
+
+    await prisma.transaction.createMany({
+      data: rows.map((r) => ({
+        date, type, category, amount: r.amount, description: r.description,
+        animalId, notAnimalSpecific: !animalId, createdById: user.id,
+      })),
+    });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Could not save." };
+  }
+
+  revalidatePath("/finance");
+  revalidatePath("/dashboard");
+  return { ok: "Saved." };
+}
+
 /** Links an existing unlinked expense to an animal, from the "needs review" list. */
 export async function linkTransactionAnimalAction(fd: FormData) {
   const user = await requireUser();

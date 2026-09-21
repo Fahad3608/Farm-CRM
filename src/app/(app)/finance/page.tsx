@@ -9,7 +9,7 @@ import Disclosure from "@/components/Disclosure";
 import ActionForm, { SubmitButton } from "@/components/ActionForm";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import { BarList, IncomeExpenseChart } from "@/components/charts";
-import { deleteTransactionAction, linkTransactionAnimalAction, markNotAnimalSpecificAction, saveTransactionAction } from "@/app/actions/finance";
+import { deleteTransactionAction, linkTransactionAnimalAction, markNotAnimalSpecificAction, saveBulkTransactionsAction, saveTransactionAction } from "@/app/actions/finance";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, SPECIES } from "@/lib/domain";
 import { fmtDate, money } from "@/lib/format";
 import { historicalRates, isoDate } from "@/lib/fx";
@@ -212,6 +212,37 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
               </Field>
               <Field label="Reference / receipt no."><input name="reference" className="input" /></Field>
               <div className="sm:col-span-2"><SubmitButton>Save transaction</SubmitButton></div>
+            </ActionForm>
+          </Card>
+        </Disclosure>
+      </div>
+
+      <div className="mb-4">
+        <Disclosure label="Add multiple expenses" tone="ghost">
+          <Card className="p-4">
+            <ActionForm action={saveBulkTransactionsAction} className="flex flex-col gap-4" resetOnSuccess>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Type">
+                  <select name="type" className="input"><option value="EXPENSE">Expense</option><option value="INCOME">Income</option></select>
+                </Field>
+                <Field label="Date *" hint="Applies to every line below">
+                  <input type="date" name="date" required defaultValue={dateVal(now)} className="input" />
+                </Field>
+                <Field label="Category *" className="sm:col-span-2">
+                  <input name="category" required className="input" list="bulk-cat-opts" placeholder="Startup Cost" />
+                  <datalist id="bulk-cat-opts">{[...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES, "Startup Cost"].map((c) => <option key={c} value={c} />)}</datalist>
+                </Field>
+                <Field label="Linked animal" className="sm:col-span-2" hint="Leave as farm-wide unless every line below is one animal's cost">
+                  <select name="animalId" className="input">
+                    <option value="">— Farm-wide (not one animal) —</option>
+                    {animals.map((a) => <option key={a.id} value={a.id}>{a.name} ({a.tagId})</option>)}
+                  </select>
+                </Field>
+              </div>
+              <Field label="Expenses — one per line, as: description, amount" hint='e.g. "Gate 8 foot, 22500"'>
+                <textarea name="lines" required rows={10} className="input resize-y font-mono text-[13px]" placeholder={"Gate 8 foot, 22500\nPipe 100 foot, 5300"} />
+              </Field>
+              <div><SubmitButton>Save all</SubmitButton></div>
             </ActionForm>
           </Card>
         </Disclosure>
