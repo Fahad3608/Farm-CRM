@@ -12,11 +12,12 @@ import { BarList, IncomeExpenseChart } from "@/components/charts";
 import { deleteTransactionAction, linkTransactionAnimalAction, markNotAnimalSpecificAction, saveTransactionAction } from "@/app/actions/finance";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, SPECIES } from "@/lib/domain";
 import { fmtDate, money } from "@/lib/format";
+import { historicalRates, isoDate } from "@/lib/fx";
 import { Icon } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
 
-type Search = { from?: string; to?: string; type?: string; category?: string; page?: string };
+type Search = { from?: string; to?: string; type?: string; category?: string; page?: string; fx?: string };
 
 const PER_PAGE = 50;
 
@@ -115,6 +116,17 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
   const pageHref = (n: number) => {
     const q = new URLSearchParams(Object.entries(sp).filter(([, v]) => v) as [string, string][]);
     q.set("page", String(n));
+    return `/finance?${q.toString()}`;
+  };
+
+  // Each row converts at the exchange rate on ITS OWN date, not today's rate —
+  // so a transaction from six months ago shows what it was worth back then.
+  const canShowUsd = settings.currency.toUpperCase() !== "USD";
+  const showUsd = canShowUsd && sp.fx === "usd";
+  const usdRates = showUsd ? await historicalRates(settings.currency, "USD", txns.map((t) => t.date)) : null;
+  const fxToggleHref = () => {
+    const q = new URLSearchParams(Object.entries(sp).filter(([, v]) => v) as [string, string][]);
+    if (showUsd) q.delete("fx"); else q.set("fx", "usd");
     return `/finance?${q.toString()}`;
   };
 
@@ -261,7 +273,16 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
           />
         </Section>
 
-        <Section title="Ledger" subtitle={pageInfo} className="lg:col-span-2">
+        <Section
+          title="Ledger"
+          subtitle={pageInfo}
+          className="lg:col-span-2"
+          action={canShowUsd && (
+            <Link href={fxToggleHref()} className="btn-ghost btn-sm">
+              {showUsd ? "Hide USD" : "Show USD"}
+            </Link>
+          )}
+        >
           {txns.length === 0 ? (
             <Empty icon="🧾" title="No transactions in this period" />
           ) : (
@@ -296,6 +317,14 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
                       <td className="td text-muted">{t.vendor ?? "—"}</td>
                       <td className={`td text-right font-semibold tabular-nums ${t.type === "INCOME" ? "text-good" : "text-bad"}`}>
                         {t.type === "INCOME" ? "+" : "−"}{money(t.amount, settings.currency)}
+                        {showUsd && (() => {
+                          const rate = usdRates?.get(isoDate(t.date));
+                          return (
+                            <div className="text-[11px] font-normal text-muted">
+                              {rate ? `≈ ${money(Number(t.amount) * rate, "USD")} on ${fmtDate(t.date)}` : "USD rate unavailable"}
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="td text-right">
                         {t.healthRecordId || t.feedLogId ? (
