@@ -229,7 +229,99 @@ async function main() {
     });
   }
 
-  console.log("✔ Demo data loaded: 13 animals, health, feed, milk, breeding and finance records.");
+  // ── Purchase batches ───────────────────────────────────────
+  // Real data from the farm's mandi trips, plus standalone purchases.
+
+  const batchAnimals: { tagId: string; name: string; species: Species; sex: "MALE" | "FEMALE"; breed?: string; color?: string; price: number; dateJoined: Date; batch?: string }[] = [
+    // Batch 1 — June 13th
+    { tagId: "C-005", name: "Jodi 1",       species: "CALF", sex: "FEMALE", price: 110000, dateJoined: new Date("2026-06-13"), batch: "batch1" },
+    { tagId: "C-006", name: "Jodi 2",       species: "CALF", sex: "FEMALE", price: 110000, dateJoined: new Date("2026-06-13"), batch: "batch1" },
+    { tagId: "C-007", name: "Blacky",       species: "CALF", sex: "FEMALE", color: "Black", price: 111000, dateJoined: new Date("2026-06-13"), batch: "batch1" },
+    { tagId: "C-008", name: "White Bachri", species: "CALF", sex: "FEMALE", color: "White", price: 115000, dateJoined: new Date("2026-06-13"), batch: "batch1" },
+    // Batch 2 — June 20th (bachris)
+    { tagId: "C-009", name: "Black Bachri",  species: "CALF", sex: "FEMALE", color: "Black", price: 127000, dateJoined: new Date("2026-06-20"), batch: "batch2" },
+    { tagId: "C-010", name: "White Bachri 2", species: "CALF", sex: "FEMALE", color: "White", price: 110000, dateJoined: new Date("2026-06-20"), batch: "batch2" },
+    { tagId: "C-011", name: "Jersey Bachri", species: "CALF", sex: "FEMALE", breed: "Jersey", price: 105000, dateJoined: new Date("2026-06-20"), batch: "batch2" },
+    // Batch 3 — June 20th (goats)
+    { tagId: "G-005", name: "Goat 1",       species: "GOAT", sex: "FEMALE", price: 40000, dateJoined: new Date("2026-06-20"), batch: "batch3" },
+    { tagId: "G-006", name: "Goat 2",       species: "GOAT", sex: "FEMALE", price: 40000, dateJoined: new Date("2026-06-20"), batch: "batch3" },
+    { tagId: "G-007", name: "Goat 3",       species: "GOAT", sex: "FEMALE", price: 40000, dateJoined: new Date("2026-06-20"), batch: "batch3" },
+    // Standalone purchases
+    { tagId: "COW-004", name: "Cow",         species: "COW", sex: "FEMALE", price: 355000, dateJoined: new Date("2026-06-30") },
+    { tagId: "G-008",   name: "Prince Breeder", species: "GOAT", sex: "MALE", price: 62000, dateJoined: new Date("2026-09-19") },
+  ];
+
+  const batchAnimalIds: Record<string, string[]> = { batch1: [], batch2: [], batch3: [] };
+  for (const a of batchAnimals) {
+    const animal = await prisma.animal.create({
+      data: {
+        tagId: a.tagId, name: a.name, species: a.species, sex: a.sex,
+        breed: a.breed ?? null, color: a.color ?? null,
+        dateJoined: a.dateJoined, acquisition: "PURCHASED",
+        sourceName: "Mandi", purchasePrice: a.price,
+        penOrLocation: a.species === "GOAT" ? "Goat pen B" : "Shed A",
+      },
+    });
+    await prisma.transaction.create({
+      data: {
+        date: a.dateJoined, type: "EXPENSE", category: "Animal Purchase",
+        amount: a.price, description: `Purchase of ${a.name} (${a.tagId})`,
+        vendor: "Mandi", animalId: animal.id, createdById: owner.id,
+      },
+    });
+    if (a.batch) batchAnimalIds[a.batch].push(animal.id);
+  }
+
+  // Batch 1 — June 13th
+  await prisma.purchaseBatch.create({
+    data: {
+      name: "June 13th — Mandi Batch 1",
+      date: new Date("2026-06-13"),
+      animals: { connect: batchAnimalIds.batch1.map((id) => ({ id })) },
+      costs: {
+        create: [
+          { description: "Parchi mandi", amount: 7500 },
+          { description: "Baba helper", amount: 1000 },
+          { description: "Karaya loader janwar", amount: 2500 },
+        ],
+      },
+    },
+  });
+
+  // Batch 2 — June 20th (bachris)
+  await prisma.purchaseBatch.create({
+    data: {
+      name: "June 20th — Mandi Batch 2 (Bachris)",
+      date: new Date("2026-06-20"),
+      animals: { connect: batchAnimalIds.batch2.map((id) => ({ id })) },
+      costs: {
+        create: [
+          { description: "Parchi mandi", amount: 6000 },
+          { description: "Baba helper", amount: 2000 },
+          { description: "Karaya loader", amount: 2500 },
+        ],
+      },
+    },
+  });
+
+  // Batch 3 — June 20th (goats)
+  await prisma.purchaseBatch.create({
+    data: {
+      name: "June 20th — Mandi Batch 2 (Goats)",
+      date: new Date("2026-06-20"),
+      animals: { connect: batchAnimalIds.batch3.map((id) => ({ id })) },
+      costs: {
+        create: [
+          { description: "Parchi mandi", amount: 900 },
+          { description: "Karaya loader", amount: 1000 },
+          { description: "Funds transfer", amount: 1500 },
+        ],
+      },
+    },
+  });
+
+  console.log("✔ Purchase batches seeded: 3 batches with 10 animals + 2 standalone purchases.");
+  console.log("✔ Demo data loaded: 25 animals, health, feed, milk, breeding, finance and batch records.");
 }
 
 main()
