@@ -17,6 +17,7 @@ export type LedgerRow = {
   vendor: string | null;
   paymentMethod: string | null;
   reference: string | null;
+  paidBy: string | null;
   type: "INCOME" | "EXPENSE";
   amount: string;
   isAuto: boolean;
@@ -34,12 +35,13 @@ type AnimalOpt = { id: string; name: string; tagId: string };
  * in place instead of deleting and re-adding it.
  */
 export default function LedgerTable({
-  rows, currency, animals, categories, deleteOne, deleteSelected, bulkEditSelected, saveTransaction,
+  rows, currency, animals, categories, payers, deleteOne, deleteSelected, bulkEditSelected, saveTransaction,
 }: {
   rows: LedgerRow[];
   currency: string;
   animals: AnimalOpt[];
   categories: string[];
+  payers: string[];
   deleteOne: (fd: FormData) => Promise<void>;
   deleteSelected: (fd: FormData) => Promise<void>;
   bulkEditSelected: (fd: FormData) => Promise<void>;
@@ -50,6 +52,7 @@ export default function LedgerTable({
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [bulkDate, setBulkDate] = useState("");
   const [bulkCategory, setBulkCategory] = useState("");
+  const [bulkPaidBy, setBulkPaidBy] = useState("");
   const [isPending, startTransition] = useTransition();
   const selectableIds = rows.filter((r) => !r.isAuto).map((r) => r.id);
   const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selected.has(id));
@@ -76,19 +79,21 @@ export default function LedgerTable({
   }
 
   function handleBulkEdit() {
-    if (selected.size === 0 || (!bulkDate && !bulkCategory)) return;
-    const what = [bulkDate && "date", bulkCategory && "category"].filter(Boolean).join(" and ");
+    if (selected.size === 0 || (!bulkDate && !bulkCategory && !bulkPaidBy)) return;
+    const what = [bulkDate && "date", bulkCategory && "category", bulkPaidBy && "payer"].filter(Boolean).join(" and ");
     if (!confirm(`Set the ${what} for ${selected.size} selected transaction${selected.size === 1 ? "" : "s"}?`)) return;
     const fd = new FormData();
     selected.forEach((id) => fd.append("ids", id));
     if (bulkDate) fd.append("date", bulkDate);
     if (bulkCategory) fd.append("category", bulkCategory);
+    if (bulkPaidBy) fd.append("paidBy", bulkPaidBy);
     startTransition(async () => {
       await bulkEditSelected(fd);
       setSelected(new Set());
       setBulkEditOpen(false);
       setBulkDate("");
       setBulkCategory("");
+      setBulkPaidBy("");
     });
   }
 
@@ -119,8 +124,15 @@ export default function LedgerTable({
                 />
                 <datalist id="bulk-edit-cat-opts">{categories.map((c) => <option key={c} value={c} />)}</datalist>
               </Field>
+              <Field label="Paid by" className="w-auto">
+                <input
+                  value={bulkPaidBy} onChange={(e) => setBulkPaidBy(e.target.value)}
+                  list="bulk-edit-payer-opts" className="input w-auto" placeholder="Leave blank to keep"
+                />
+                <datalist id="bulk-edit-payer-opts">{payers.map((p) => <option key={p} value={p} />)}</datalist>
+              </Field>
               <button
-                type="button" onClick={handleBulkEdit} disabled={isPending || (!bulkDate && !bulkCategory)}
+                type="button" onClick={handleBulkEdit} disabled={isPending || (!bulkDate && !bulkCategory && !bulkPaidBy)}
                 className="btn-primary btn-sm"
               >
                 {isPending ? "Applying…" : `Apply to ${selected.size}`}
@@ -130,7 +142,7 @@ export default function LedgerTable({
         </div>
       )}
       <div className="scroll-x">
-        <table className="w-full min-w-[800px]">
+        <table className="w-full min-w-[900px]">
           <thead>
             <tr>
               <th className="th w-8">
@@ -145,7 +157,7 @@ export default function LedgerTable({
                 )}
               </th>
               <th className="th">Date</th><th className="th">Category</th><th className="th">Description</th>
-              <th className="th">Animal</th><th className="th">Vendor</th><th className="th text-right">Amount</th><th className="th"></th>
+              <th className="th">Animal</th><th className="th">Vendor</th><th className="th">Paid by</th><th className="th text-right">Amount</th><th className="th"></th>
             </tr>
           </thead>
           <tbody>
@@ -181,6 +193,7 @@ export default function LedgerTable({
                     ) : "—"}
                   </td>
                   <td className="td text-muted">{t.vendor ?? "—"}</td>
+                  <td className="td">{t.paidBy ? <Badge tone="brand">{t.paidBy}</Badge> : <span className="text-muted">—</span>}</td>
                   <td className={`td text-right font-semibold tabular-nums ${t.type === "INCOME" ? "text-good" : "text-bad"}`}>
                     {t.type === "INCOME" ? "+" : "−"}{money(t.amount, currency)}
                     {t.usdText && <div className="text-[11px] font-normal text-muted">{t.usdText}</div>}
@@ -210,7 +223,7 @@ export default function LedgerTable({
                 </tr>
                 {editingId === t.id && (
                   <tr>
-                    <td colSpan={8} className="border-t border-line bg-surface2/40 p-4">
+                    <td colSpan={9} className="border-t border-line bg-surface2/40 p-4">
                       <ActionForm
                         action={saveTransaction}
                         className="grid gap-4 sm:grid-cols-2"
@@ -237,6 +250,10 @@ export default function LedgerTable({
                           </select>
                         </Field>
                         <Field label="Vendor / paid to"><input name="vendor" defaultValue={t.vendor ?? ""} className="input" /></Field>
+                        <Field label="Paid by" hint="Whose money this was">
+                          <input name="paidBy" defaultValue={t.paidBy ?? ""} className="input" list={`edit-payer-opts-${t.id}`} />
+                          <datalist id={`edit-payer-opts-${t.id}`}>{payers.map((p) => <option key={p} value={p} />)}</datalist>
+                        </Field>
                         <Field label="Payment method"><input name="paymentMethod" defaultValue={t.paymentMethod ?? ""} className="input" /></Field>
                         <Field label="Reference / receipt no."><input name="reference" defaultValue={t.reference ?? ""} className="input" /></Field>
                         <div className="flex items-center gap-2 sm:col-span-2">

@@ -150,3 +150,29 @@ export const VACCINE_SUGGESTIONS: Partial<Record<Species, string[]>> = {
   GOAT: ["PPR (Peste des Petits Ruminants)", "Enterotoxaemia (ET)", "Goat Pox", "CCPP", "Tetanus", "Anthrax"],
   SHEEP: ["PPR", "Enterotoxaemia (ET)", "Sheep Pox", "Blue Tongue", "Tetanus"],
 };
+
+/**
+ * What buyers usually take off the farm: the unit it's sold in and the income
+ * category its sales land under in the ledger. These only pre-fill a customer's
+ * rate card — any other product, unit or category can still be typed in.
+ */
+export const SALE_PRODUCTS: { product: string; unit: string; category: string }[] = [
+  { product: "Milk", unit: "litre", category: "Milk Sales" },
+  { product: "Buffalo milk", unit: "litre", category: "Milk Sales" },
+  { product: "Ghee", unit: "kg", category: "Other Income" },
+  { product: "Manure", unit: "trolley", category: "Manure Sales" },
+  { product: "Animal", unit: "head", category: "Animal Sale" },
+  { product: "Breeding service", unit: "service", category: "Breeding Service" },
+  { product: "Wool / hair", unit: "kg", category: "Wool / Hair" },
+];
+
+export const SALE_UNITS = ["litre", "kg", "maund", "trolley", "bag", "head", "dozen", "service"];
+
+/** The unit and income category a product is usually sold under, if it's a known one. */
+export function saleProductPreset(product: string) {
+  const key = product.trim().toLowerCase();
+  return SALE_PRODUCTS.find((p) => p.product.toLowerCase() === key) ?? null;
+}
+
+/** Filter value meaning "no payer recorded on the entry". */
+export const NO_PAYER = "__none__";

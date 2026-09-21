@@ -37,4 +37,5 @@ export const Icon = {
   batch: (p: P) => (<svg viewBox="0 0 24 24" className={p.className ?? base} {...s}><path d="M16 3H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z" /><path d="M10 7h4M10 11h4M10 15h2" /><path d="M4 7h2M4 11h2M4 15h2" /></svg>),
   scale: (p: P) => (<svg viewBox="0 0 24 24" className={p.className ?? base} {...s}><path d="M12 3v18M7 21h10M4 8h16l-2 6H6z" /></svg>),
   milk: (p: P) => (<svg viewBox="0 0 24 24" className={p.className ?? base} {...s}><path d="M9 2h6v3l2 4v11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V9l2-4z" /><path d="M7 13h10" /></svg>),
+  customers: (p: P) => (<svg viewBox="0 0 24 24" className={p.className ?? base} {...s}><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 5.5a3 3 0 0 1 0 5.8M17.5 14.5a5.5 5.5 0 0 1 4 5.5" /></svg>),
 };

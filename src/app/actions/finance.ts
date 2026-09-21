@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { dec, enumOf, reqDate, reqStr, str } from "@/lib/form";
+import { NO_PAYER } from "@/lib/domain";
 import type { TxnType } from "@prisma/client";
 
 type State = { error?: string; ok?: string } | undefined;
@@ -28,6 +29,7 @@ export async function saveTransactionAction(_prev: State, fd: FormData): Promise
       vendor: str(fd, "vendor"),
       paymentMethod: str(fd, "paymentMethod"),
       reference: str(fd, "reference"),
+      paidBy: str(fd, "paidBy"),
       animalId: str(fd, "animalId"),
     };
     animalId = data.animalId;
@@ -59,6 +61,7 @@ export async function saveBulkTransactionsAction(_prev: State, fd: FormData): Pr
     const type = enumOf<TxnType>(fd, "type", ["INCOME", "EXPENSE"] as const, "EXPENSE");
     const category = reqStr(fd, "category", "Category");
     const animalId = str(fd, "animalId");
+    const paidBy = str(fd, "paidBy");
     const linesRaw = reqStr(fd, "lines", "Expenses");
 
     const rows = linesRaw
@@ -80,7 +83,7 @@ export async function saveBulkTransactionsAction(_prev: State, fd: FormData): Pr
     await prisma.transaction.createMany({
       data: rows.map((r) => ({
         date, type, category, amount: r.amount, description: r.description,
-        animalId, notAnimalSpecific: !animalId, createdById: user.id,
+        animalId, paidBy, notAnimalSpecific: !animalId, createdById: user.id,
       })),
     });
   } catch (e) {
@@ -116,8 +119,8 @@ export async function markNotAnimalSpecificAction(fd: FormData) {
  * Deletes every transaction matching the Finance page's current filter
  * (date range, type, one or more categories) in one go, e.g. to undo a bulk
  * paste that went in under the wrong category. No categories checked means
- * the filter isn't applied. Auto-linked rows (from a health or feed record)
- * are left alone, same as the single delete.
+ * the filter isn't applied. Auto-linked rows (from a health, feed, batch cost
+ * or customer delivery record) are left alone, same as the single delete.
  */
 export async function deleteFilteredTransactionsAction(fd: FormData) {
   const user = await requireUser();
@@ -127,15 +130,18 @@ export async function deleteFilteredTransactionsAction(fd: FormData) {
   const to = reqStr(fd, "to", "To");
   const type = str(fd, "type");
   const categories = fd.getAll("category").map(String).filter(Boolean);
+  const paidBy = str(fd, "paidBy");
 
   await prisma.transaction.deleteMany({
     where: {
       date: { gte: new Date(`${from}T00:00:00`), lte: new Date(`${to}T23:59:59`) },
       ...(categories.length > 0 ? { category: { in: categories } } : {}),
       ...(type && type !== "ALL" ? { type: type as TxnType } : {}),
+      ...(paidBy === NO_PAYER ? { paidBy: null } : paidBy ? { paidBy } : {}),
       healthRecordId: null,
       feedLogId: null,
       batchCostId: null,
+      saleId: null,
     },
   });
 
@@ -158,12 +164,15 @@ export async function editFilteredTransactionsAction(fd: FormData) {
   const to = reqStr(fd, "to", "To");
   const type = str(fd, "type");
   const categories = fd.getAll("category").map(String).filter(Boolean);
+  const paidBy = str(fd, "paidBy");
 
   const setDate = str(fd, "setDate");
   const setCategory = str(fd, "setCategory");
-  const data: { date?: Date; category?: string } = {};
+  const setPaidBy = str(fd, "setPaidBy");
+  const data: { date?: Date; category?: string; paidBy?: string } = {};
   if (setDate) data.date = new Date(`${setDate}T12:00:00`);
   if (setCategory) data.category = setCategory;
+  if (setPaidBy) data.paidBy = setPaidBy;
   if (Object.keys(data).length === 0) return;
 
   await prisma.transaction.updateMany({
@@ -171,9 +180,11 @@ export async function editFilteredTransactionsAction(fd: FormData) {
       date: { gte: new Date(`${from}T00:00:00`), lte: new Date(`${to}T23:59:59`) },
       ...(categories.length > 0 ? { category: { in: categories } } : {}),
       ...(type && type !== "ALL" ? { type: type as TxnType } : {}),
+      ...(paidBy === NO_PAYER ? { paidBy: null } : paidBy ? { paidBy } : {}),
       healthRecordId: null,
       feedLogId: null,
       batchCostId: null,
+      saleId: null,
     },
     data,
   });
@@ -186,7 +197,7 @@ export async function editFilteredTransactionsAction(fd: FormData) {
  * Applies a new date and/or category to every transaction checked off in the
  * ledger — e.g. a batch of items entered under the wrong date can be fixed
  * in one go instead of editing each row by hand. Only the fields actually
- * filled in are changed; auto-linked (health/feed) rows are left alone.
+ * filled in are changed; auto-linked (health/feed/batch/sale) rows are left alone.
  */
 export async function bulkEditSelectedTransactionsAction(fd: FormData) {
   const user = await requireUser();
@@ -197,13 +208,15 @@ export async function bulkEditSelectedTransactionsAction(fd: FormData) {
 
   const dateStr = str(fd, "date");
   const category = str(fd, "category");
-  const data: { date?: Date; category?: string } = {};
+  const paidBy = str(fd, "paidBy");
+  const data: { date?: Date; category?: string; paidBy?: string } = {};
   if (dateStr) data.date = new Date(`${dateStr}T12:00:00`);
   if (category) data.category = category;
+  if (paidBy) data.paidBy = paidBy;
   if (Object.keys(data).length === 0) return;
 
   await prisma.transaction.updateMany({
-    where: { id: { in: ids }, healthRecordId: null, feedLogId: null, batchCostId: null },
+    where: { id: { in: ids }, healthRecordId: null, feedLogId: null, batchCostId: null, saleId: null },
     data,
   });
 
@@ -220,7 +233,7 @@ export async function deleteSelectedTransactionsAction(fd: FormData) {
   if (ids.length === 0) return;
 
   await prisma.transaction.deleteMany({
-    where: { id: { in: ids }, healthRecordId: null, feedLogId: null, batchCostId: null },
+    where: { id: { in: ids }, healthRecordId: null, feedLogId: null, batchCostId: null, saleId: null },
   });
 
   revalidatePath("/finance");
@@ -232,8 +245,8 @@ export async function deleteTransactionAction(fd: FormData) {
   if (!can.editFinance(user.role)) throw new Error("Not permitted.");
   const id = reqStr(fd, "id");
   const txn = await prisma.transaction.findUnique({ where: { id } });
-  if (txn?.healthRecordId || txn?.feedLogId || txn?.batchCostId) {
-    throw new Error("This entry comes from a health, feed, or batch cost record — delete it there instead.");
+  if (txn?.healthRecordId || txn?.feedLogId || txn?.batchCostId || txn?.saleId) {
+    throw new Error("This entry comes from a health, feed, batch cost or customer delivery record — delete it there instead.");
   }
   await prisma.transaction.delete({ where: { id } });
   revalidatePath("/finance");

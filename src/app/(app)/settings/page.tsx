@@ -9,9 +9,10 @@ import ConfirmSubmit from "@/components/ConfirmSubmit";
 import Disclosure from "@/components/Disclosure";
 import { deleteUserAction, saveFarmSettingsAction, saveUserAction } from "@/app/actions/settings";
 import { createCategoryAction, deleteCategoryAction, setCategoryGroupAction } from "@/app/actions/categories";
+import { createPayerAction, deletePayerAction, renamePayerAction } from "@/app/actions/payers";
 import { backfillPurchaseTransactionsAction } from "@/app/actions/animals";
 import { backfillBatchCostTransactionsAction } from "@/app/actions/batches";
-import { fmtDate } from "@/lib/format";
+import { fmtDate, money } from "@/lib/format";
 import { Icon } from "@/components/icons";
 import { CATEGORY_GROUPS, EXPENSE_CATEGORIES, categoryGroupOf } from "@/lib/domain";
 import AutoSubmitSelect from "@/components/AutoSubmitSelect";
@@ -29,6 +30,18 @@ export default async function SettingsPage() {
   const categories = can.editFinance(me.role)
     ? await prisma.category.findMany({ orderBy: [{ type: "asc" }, { name: "asc" }] })
     : [];
+  const payers = can.editFinance(me.role)
+    ? await prisma.payer.findMany({ orderBy: { name: "asc" } })
+    : [];
+  // What each payer has funded so far — the same total Finance shows, here as
+  // a sanity check that money is landing against the right person.
+  const payerTotals = can.editFinance(me.role)
+    ? new Map(
+        (await prisma.transaction.groupBy({ by: ["paidBy"], where: { type: "EXPENSE" }, _sum: { amount: true } }))
+          .filter((r) => r.paidBy)
+          .map((r) => [r.paidBy as string, Number(r._sum.amount ?? 0)]),
+      )
+    : new Map<string, number>();
 
   // Every expense category anyone could see on Finance — built-in, custom, or
   // just typed once on a transaction — so grouping covers all of them, not
@@ -112,8 +125,58 @@ export default async function SettingsPage() {
 
         {can.editFinance(me.role) && (
           <Section
+            title="Who funds the farm"
+            subtitle="Partners and investors — every entry can be marked as theirs, and Finance totals what each has put in"
+            className="lg:col-span-2"
+          >
+            <div className="border-b border-line p-4">
+              <ActionForm action={createPayerAction} className="flex flex-wrap items-end gap-3" resetOnSuccess>
+                <Field label="Name *"><input name="name" required className="input w-auto" placeholder="e.g. Partner A" /></Field>
+                <Field label="Notes"><input name="notes" className="input w-auto" placeholder="Optional" /></Field>
+                <SubmitButton>Add payer</SubmitButton>
+              </ActionForm>
+            </div>
+
+            {payers.length === 0 ? (
+              <Empty
+                icon="🤝"
+                title="No payers yet"
+                hint="Add whoever puts money into the farm. Then pick them in “Paid by” on an entry, and Finance keeps a running total per person."
+              />
+            ) : (
+              <ul className="divide-y divide-line">
+                {payers.map((p) => (
+                  <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5">
+                    <ActionForm action={renamePayerAction} className="flex items-center gap-2">
+                      <input type="hidden" name="id" value={p.id} />
+                      <input name="name" defaultValue={p.name} className="input w-auto" aria-label="Payer name" />
+                      <SubmitButton className="btn-ghost btn-sm">Rename</SubmitButton>
+                    </ActionForm>
+                    <div className="flex items-center gap-3">
+                      <span className="tabular-nums text-[13.5px] text-muted">
+                        {money(payerTotals.get(p.name) ?? 0, settings.currency)} invested
+                      </span>
+                      <form action={deletePayerAction}>
+                        <input type="hidden" name="id" value={p.id} />
+                        <ConfirmSubmit
+                          message={`Remove "${p.name}" from the payer list? Entries already marked as theirs keep the name.`}
+                          className="rounded-lg p-1.5 text-muted hover:text-bad"
+                        >
+                          <Icon.trash className="h-4 w-4" />
+                        </ConfirmSubmit>
+                      </form>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
+        )}
+
+        {can.editFinance(me.role) && (
+          <Section
             title="Group your expense categories"
-            subtitle="Powers Finance's Expenses by group and Monthly operational cost — pick which bucket each category rolls up into"
+            subtitle="Powers Finance's Expenses by group — pick which bucket each category rolls up into"
             className="lg:col-span-2"
           >
             <ul className="divide-y divide-line">
