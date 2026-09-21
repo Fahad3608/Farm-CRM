@@ -53,8 +53,8 @@ test("month links keep selected categories and use correct leap-year bounds", ()
 
 test("construction and equipment materials stay separate from rent and caretaker salary", () => {
   const [month] = monthlyExpenses([
-    entry("2026-09-01T12:00:00Z", "Construction Costs", "40000"),
-    entry("2026-09-02T12:00:00Z", "Material Cost (Equipment)", "15000"),
+    entry("2026-09-01T12:00:00Z", "Construction", "40000"),
+    entry("2026-09-02T12:00:00Z", "Equipment", "15000"),
     entry("2026-09-03T12:00:00Z", "Farm Rent", "17000"),
     entry("2026-09-04T12:00:00Z", "Caretaker Salary", "20000"),
   ], new Map());

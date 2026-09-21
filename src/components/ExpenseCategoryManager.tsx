@@ -17,7 +17,7 @@ export default function ExpenseCategoryManager({ categories }: {
   return <details id="manage-expense-categories" className="card mb-4 scroll-mt-4">
     <summary className="cursor-pointer px-4 py-3 font-semibold">Manage expense categories</summary>
     <div className="border-t border-line p-4">
-      <p className="mb-3 text-[13px] text-muted">Spending groups are your main categories. Subcategories describe what you paid for: Farm Rent and Caretaker Salary are operational costs; Construction Costs and Material Cost (Equipment) belong to construction and equipment.</p>
+      <p className="mb-3 text-[13px] text-muted">Spending groups are your main categories. Subcategories describe what you paid for: Farm Rent and Caretaker Salary are operational costs; Construction and Equipment belong to capital costs.</p>
       <ActionForm action={createCategoryAction} className="grid items-end gap-3 sm:grid-cols-3" resetOnSuccess>
         <input type="hidden" name="type" value="EXPENSE" />
         <Field label="New subcategory"><input name="name" required className="input" placeholder="e.g. Electricity" /></Field>

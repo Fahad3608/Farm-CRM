@@ -42,7 +42,7 @@ export default async function EquipmentDetailPage({ params }: { params: Promise<
         <ActionForm action={addEquipmentExpenseAction} resetOnSuccess className="grid gap-3 p-4 sm:grid-cols-2">
           <input name="equipmentId" value={id} type="hidden" />
           <Field label="Date *"><input name="date" type="date" required defaultValue={dateInput(new Date())} className="input" /></Field>
-          <Field label="Category"><select name="category" className="input" defaultValue={item.kind === "CONSTRUCTION" ? "Construction Costs" : "Material Cost (Equipment)"}>{EQUIPMENT_COST_CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></Field>
+          <Field label="Category"><select name="category" className="input" defaultValue={item.kind === "CONSTRUCTION" ? "Construction" : "Equipment"}>{EQUIPMENT_COST_CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></Field>
           <Field label="Description *" className="sm:col-span-2"><input name="description" required className="input" placeholder="e.g. Steel pipes, welding labour" /></Field>
           <Field label={`Amount (${settings.currency}) *`}><input name="amount" required inputMode="decimal" className="input" /></Field>
           <Field label="Paid to / vendor"><input name="vendor" className="input" /></Field>
