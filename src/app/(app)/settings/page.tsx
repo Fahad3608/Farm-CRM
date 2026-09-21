@@ -8,6 +8,7 @@ import ActionForm, { SubmitButton } from "@/components/ActionForm";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import Disclosure from "@/components/Disclosure";
 import { deleteUserAction, saveFarmSettingsAction, saveUserAction } from "@/app/actions/settings";
+import { createCategoryAction, deleteCategoryAction } from "@/app/actions/categories";
 import { fmtDate } from "@/lib/format";
 import { Icon } from "@/components/icons";
 
@@ -20,6 +21,9 @@ export default async function SettingsPage() {
   const settings = await getSettings();
   const users = can.manageUsers(me.role)
     ? await prisma.user.findMany({ orderBy: [{ role: "asc" }, { name: "asc" }] })
+    : [];
+  const categories = can.editFinance(me.role)
+    ? await prisma.category.findMany({ orderBy: [{ type: "asc" }, { name: "asc" }] })
     : [];
 
   return (
@@ -53,6 +57,41 @@ export default async function SettingsPage() {
             ))}
           </ul>
         </Section>
+
+        {can.editFinance(me.role) && (
+          <Section title="Expense & income categories" subtitle="Always offered as a suggestion on Finance, even before you've used them" className="lg:col-span-2">
+            <div className="border-b border-line p-4">
+              <ActionForm action={createCategoryAction} className="flex flex-wrap items-end gap-3" resetOnSuccess>
+                <Field label="Name *"><input name="name" required className="input w-auto" placeholder="Dewar Labour" /></Field>
+                <Field label="Type">
+                  <select name="type" className="input w-auto"><option value="EXPENSE">Expense</option><option value="INCOME">Income</option></select>
+                </Field>
+                <SubmitButton>Add category</SubmitButton>
+              </ActionForm>
+            </div>
+
+            {categories.length === 0 ? (
+              <Empty icon="🏷️" title="No custom categories yet" hint="The usual ones (Feed, Veterinary, Milk Sales…) already show up as suggestions — add your own here too." />
+            ) : (
+              <ul className="divide-y divide-line">
+                {categories.map((c) => (
+                  <li key={c.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                    <span className="flex items-center gap-2 text-[14px]">
+                      {c.name}
+                      <Badge tone={c.type === "INCOME" ? "good" : "muted"}>{c.type === "INCOME" ? "Income" : "Expense"}</Badge>
+                    </span>
+                    <form action={deleteCategoryAction}>
+                      <input type="hidden" name="id" value={c.id} />
+                      <ConfirmSubmit message={`Remove "${c.name}" from your category suggestions? Existing transactions keep it.`} className="rounded-lg p-1.5 text-muted hover:text-bad">
+                        <Icon.trash className="h-4 w-4" />
+                      </ConfirmSubmit>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
+        )}
 
         {can.manageUsers(me.role) && (
           <Section

@@ -142,6 +142,35 @@ export async function deleteFilteredTransactionsAction(fd: FormData) {
   revalidatePath("/dashboard");
 }
 
+/**
+ * Applies a new date and/or category to every transaction checked off in the
+ * ledger — e.g. a batch of items entered under the wrong date can be fixed
+ * in one go instead of editing each row by hand. Only the fields actually
+ * filled in are changed; auto-linked (health/feed) rows are left alone.
+ */
+export async function bulkEditSelectedTransactionsAction(fd: FormData) {
+  const user = await requireUser();
+  if (!can.editFinance(user.role)) throw new Error("Not permitted.");
+
+  const ids = fd.getAll("ids").map(String).filter(Boolean);
+  if (ids.length === 0) return;
+
+  const dateStr = str(fd, "date");
+  const category = str(fd, "category");
+  const data: { date?: Date; category?: string } = {};
+  if (dateStr) data.date = new Date(`${dateStr}T12:00:00`);
+  if (category) data.category = category;
+  if (Object.keys(data).length === 0) return;
+
+  await prisma.transaction.updateMany({
+    where: { id: { in: ids }, healthRecordId: null, feedLogId: null },
+    data,
+  });
+
+  revalidatePath("/finance");
+  revalidatePath("/dashboard");
+}
+
 /** Deletes whichever transactions were checked off in the ledger, regardless of filter. */
 export async function deleteSelectedTransactionsAction(fd: FormData) {
   const user = await requireUser();

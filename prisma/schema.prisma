@@ -403,6 +403,19 @@ model Transaction {
   @@index([animalId])
 }
 
+// A category someone has deliberately set up, so it always offers itself as
+// a suggestion even before it's ever been used on a transaction. Deleting one
+// only removes it from the suggestion list — it never touches transactions
+// already saved under that name, since category is just a label there.
+model Category {
+  id        String   @id @default(cuid())
+  name      String
+  type      TxnType
+  createdAt DateTime @default(now())
+
+  @@unique([name, type])
+}
+
 // ─────────────────────────────────────────────────────────────
 // Settings & audit
 // ─────────────────────────────────────────────────────────────

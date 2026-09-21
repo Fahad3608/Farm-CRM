@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
@@ -10,7 +11,7 @@ import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
-type Search = { q?: string; species?: string; status?: string; stage?: string };
+type Search = { q?: string; species?: string; status?: string; stage?: string; sex?: string };
 
 export default async function AnimalsPage({ searchParams }: { searchParams: Promise<Search> }) {
   const user = await requireUser();
@@ -20,6 +21,7 @@ export default async function AnimalsPage({ searchParams }: { searchParams: Prom
   const where: Prisma.AnimalWhereInput = {
     ...(sp.status && sp.status !== "ALL" ? { status: sp.status as never } : sp.status === "ALL" ? {} : { status: "ACTIVE" }),
     ...(sp.species && sp.species !== "ALL" ? { species: sp.species as never } : {}),
+    ...(sp.sex ? { sex: sp.sex as never } : {}),
     ...(q
       ? {
           OR: [
@@ -42,7 +44,14 @@ export default async function AnimalsPage({ searchParams }: { searchParams: Prom
     },
   });
 
-  const counts = await prisma.animal.groupBy({ by: ["species"], where: { status: "ACTIVE" }, _count: true });
+  const [counts, calfSexCounts] = await Promise.all([
+    prisma.animal.groupBy({ by: ["species"], where: { status: "ACTIVE" }, _count: true }),
+    // Calf covers both sexes (Bachra/Bachri), so it gets its own two chips
+    // below instead of one combined "Calf" chip.
+    prisma.animal.groupBy({ by: ["sex"], where: { status: "ACTIVE", species: "CALF" }, _count: true }),
+  ]);
+  const bachraCount = calfSexCounts.find((c) => c.sex === "MALE")?._count ?? 0;
+  const bachriCount = calfSexCounts.find((c) => c.sex === "FEMALE")?._count ?? 0;
   const shown = sp.stage === "young" ? animals.filter((a) => {
     const age = ageFrom(a.dateOfBirth);
     return age !== null && age.months < SPECIES[a.species].matureMonths;
@@ -91,12 +100,23 @@ export default async function AnimalsPage({ searchParams }: { searchParams: Prom
 
       {counts.length > 0 && (
         <div className="mb-4 flex flex-wrap gap-2">
-          <Link href={qs({ species: "ALL" })} className="chip hover:bg-surface2">All · {counts.reduce((s, c) => s + c._count, 0)}</Link>
-          {counts.map((c) => (
-            <Link key={c.species} href={qs({ species: c.species })} className="chip hover:bg-surface2">
-              {SPECIES[c.species].emoji} {SPECIES[c.species].label} · {c._count}
-            </Link>
-          ))}
+          <Link href={qs({ species: "ALL", sex: "" })} className="chip hover:bg-surface2">All · {counts.reduce((s, c) => s + c._count, 0)}</Link>
+          {counts.map((c) =>
+            c.species === "CALF" ? (
+              <Fragment key="calf">
+                <Link href={qs({ species: "CALF", sex: "MALE" })} className="chip hover:bg-surface2">
+                  {SPECIES.CALF.emoji} Bachra · {bachraCount}
+                </Link>
+                <Link href={qs({ species: "CALF", sex: "FEMALE" })} className="chip hover:bg-surface2">
+                  {SPECIES.CALF.emoji} Bachri · {bachriCount}
+                </Link>
+              </Fragment>
+            ) : (
+              <Link key={c.species} href={qs({ species: c.species, sex: "" })} className="chip hover:bg-surface2">
+                {SPECIES[c.species].emoji} {SPECIES[c.species].label} · {c._count}
+              </Link>
+            )
+          )}
         </div>
       )}
 
@@ -124,7 +144,7 @@ export default async function AnimalsPage({ searchParams }: { searchParams: Prom
                       <span className="shrink-0 font-mono text-[11.5px] text-muted">{a.tagId}</span>
                     </div>
                     <div className="mt-0.5 truncate text-[13px] text-muted">
-                      {stage}{a.breed ? ` · ${a.breed}` : ""}{age ? ` · ${age.label}` : " · age unknown"}
+                      {stage}{a.breed ? ` · ${a.breed}` : ""}{age ? ` · ${age.label}` : ""}
                     </div>
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                       {a.status !== "ACTIVE" && <Badge tone="muted">{STATUS_LABEL[a.status]}</Badge>}

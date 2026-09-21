@@ -9,7 +9,7 @@ import Disclosure from "@/components/Disclosure";
 import ActionForm, { SubmitButton } from "@/components/ActionForm";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import { BarList, IncomeExpenseChart } from "@/components/charts";
-import { deleteFilteredTransactionsAction, deleteSelectedTransactionsAction, deleteTransactionAction, linkTransactionAnimalAction, markNotAnimalSpecificAction, saveBulkTransactionsAction, saveTransactionAction } from "@/app/actions/finance";
+import { bulkEditSelectedTransactionsAction, deleteFilteredTransactionsAction, deleteSelectedTransactionsAction, deleteTransactionAction, linkTransactionAnimalAction, markNotAnimalSpecificAction, saveBulkTransactionsAction, saveTransactionAction } from "@/app/actions/finance";
 import LedgerTable, { type LedgerRow } from "@/components/LedgerTable";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "@/lib/domain";
 import { fmtDate, money } from "@/lib/format";
@@ -44,7 +44,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
   const page = Math.max(1, Number(sp.page ?? 1) || 1);
 
   const needsReviewWhere = { type: "EXPENSE" as const, animalId: null, feedLogId: null, notAnimalSpecific: false };
-  const [txns, txnCount, deletableCount, totals, byCategory, animals, perAnimal, needsReview, needsReviewCount] = await Promise.all([
+  const [txns, txnCount, deletableCount, totals, byCategory, animals, perAnimal, needsReview, needsReviewCount, dbCategories] = await Promise.all([
     prisma.transaction.findMany({
       where,
       orderBy: { date: "desc" },
@@ -70,7 +70,18 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       take: 20,
     }),
     prisma.transaction.count({ where: needsReviewWhere }),
+    prisma.category.findMany({ orderBy: { name: "asc" } }),
   ]);
+
+  // Every category input on this page offers the same list: the built-in
+  // defaults, anything set up in Settings, and anything already used —
+  // so a category you've typed once (or created ahead of time) always
+  // shows up as a suggestion everywhere else.
+  const allCategories = [...new Set([
+    ...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES,
+    ...dbCategories.map((c) => c.name),
+    ...byCategory.map((c) => c.category),
+  ])].sort();
 
   const income = Number(totals.find((t) => t.type === "INCOME")?._sum.amount ?? 0);
   const expense = Number(totals.find((t) => t.type === "EXPENSE")?._sum.amount ?? 0);
@@ -215,7 +226,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
               <Field label="Date *"><input type="date" name="date" required defaultValue={dateVal(now)} className="input" /></Field>
               <Field label="Category *">
                 <input name="category" required className="input" list="cat-opts" placeholder="Feed" />
-                <datalist id="cat-opts">{[...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES].map((c) => <option key={c} value={c} />)}</datalist>
+                <datalist id="cat-opts">{allCategories.map((c) => <option key={c} value={c} />)}</datalist>
               </Field>
               <Field label={`Amount (${settings.currency}) *`}><input name="amount" required inputMode="decimal" className="input" placeholder="0" /></Field>
               <Field label="Description" className="sm:col-span-2"><input name="description" className="input" /></Field>
@@ -250,7 +261,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
                 </Field>
                 <Field label="Category *" className="sm:col-span-2">
                   <input name="category" required className="input" list="bulk-cat-opts" placeholder="Startup Cost" />
-                  <datalist id="bulk-cat-opts">{[...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES, "Startup Cost"].map((c) => <option key={c} value={c} />)}</datalist>
+                  <datalist id="bulk-cat-opts">{allCategories.map((c) => <option key={c} value={c} />)}</datalist>
                 </Field>
                 <Field label="Linked animal" className="sm:col-span-2" hint="Leave as farm-wide unless every line below is one animal's cost">
                   <select name="animalId" className="input">
@@ -359,8 +370,10 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
               rows={ledgerRows}
               currency={settings.currency}
               animals={animals}
+              categories={allCategories}
               deleteOne={deleteTransactionAction}
               deleteSelected={deleteSelectedTransactionsAction}
+              bulkEditSelected={bulkEditSelectedTransactionsAction}
               saveTransaction={saveTransactionAction}
             />
           )}

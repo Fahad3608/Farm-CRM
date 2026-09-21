@@ -6,7 +6,7 @@ import { Avatar, Badge, Field } from "./ui";
 import ActionForm, { SubmitButton, type ActionState } from "./ActionForm";
 import ConfirmSubmit from "./ConfirmSubmit";
 import { Icon } from "./icons";
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, SPECIES } from "@/lib/domain";
+import { SPECIES } from "@/lib/domain";
 import { fmtDate, money } from "@/lib/format";
 
 export type LedgerRow = {
@@ -34,17 +34,22 @@ type AnimalOpt = { id: string; name: string; tagId: string };
  * in place instead of deleting and re-adding it.
  */
 export default function LedgerTable({
-  rows, currency, animals, deleteOne, deleteSelected, saveTransaction,
+  rows, currency, animals, categories, deleteOne, deleteSelected, bulkEditSelected, saveTransaction,
 }: {
   rows: LedgerRow[];
   currency: string;
   animals: AnimalOpt[];
+  categories: string[];
   deleteOne: (fd: FormData) => Promise<void>;
   deleteSelected: (fd: FormData) => Promise<void>;
+  bulkEditSelected: (fd: FormData) => Promise<void>;
   saveTransaction: (prev: ActionState, fd: FormData) => Promise<ActionState>;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [bulkDate, setBulkDate] = useState("");
+  const [bulkCategory, setBulkCategory] = useState("");
   const [isPending, startTransition] = useTransition();
   const selectableIds = rows.filter((r) => !r.isAuto).map((r) => r.id);
   const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selected.has(id));
@@ -70,14 +75,58 @@ export default function LedgerTable({
     });
   }
 
+  function handleBulkEdit() {
+    if (selected.size === 0 || (!bulkDate && !bulkCategory)) return;
+    const what = [bulkDate && "date", bulkCategory && "category"].filter(Boolean).join(" and ");
+    if (!confirm(`Set the ${what} for ${selected.size} selected transaction${selected.size === 1 ? "" : "s"}?`)) return;
+    const fd = new FormData();
+    selected.forEach((id) => fd.append("ids", id));
+    if (bulkDate) fd.append("date", bulkDate);
+    if (bulkCategory) fd.append("category", bulkCategory);
+    startTransition(async () => {
+      await bulkEditSelected(fd);
+      setSelected(new Set());
+      setBulkEditOpen(false);
+      setBulkDate("");
+      setBulkCategory("");
+    });
+  }
+
   return (
     <>
       {selected.size > 0 && (
-        <div className="flex items-center justify-between gap-3 border-b border-line bg-surface2/60 px-4 py-2.5">
-          <span className="text-[13px] text-muted">{selected.size} selected</span>
-          <button type="button" onClick={handleDeleteSelected} disabled={isPending} className="btn-danger btn-sm">
-            {isPending ? "Deleting…" : "Delete selected"}
-          </button>
+        <div className="border-b border-line bg-surface2/60 px-4 py-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="text-[13px] text-muted">{selected.size} selected</span>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => setBulkEditOpen((o) => !o)} className="btn-ghost btn-sm">
+                {bulkEditOpen ? "Cancel edit" : "Edit selected"}
+              </button>
+              <button type="button" onClick={handleDeleteSelected} disabled={isPending} className="btn-danger btn-sm">
+                {isPending ? "Deleting…" : "Delete selected"}
+              </button>
+            </div>
+          </div>
+          {bulkEditOpen && (
+            <div className="mt-3 flex flex-wrap items-end gap-2">
+              <Field label="New date" className="w-auto">
+                <input type="date" value={bulkDate} onChange={(e) => setBulkDate(e.target.value)} className="input w-auto" />
+              </Field>
+              <Field label="New category" className="w-auto">
+                <input
+                  value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)}
+                  list="bulk-edit-cat-opts" className="input w-auto" placeholder="Leave blank to keep"
+                />
+                <datalist id="bulk-edit-cat-opts">{categories.map((c) => <option key={c} value={c} />)}</datalist>
+              </Field>
+              <button
+                type="button" onClick={handleBulkEdit} disabled={isPending || (!bulkDate && !bulkCategory)}
+                className="btn-primary btn-sm"
+              >
+                {isPending ? "Applying…" : `Apply to ${selected.size}`}
+              </button>
+            </div>
+          )}
         </div>
       )}
       <div className="scroll-x">
@@ -177,7 +226,7 @@ export default function LedgerTable({
                         <Field label="Date *"><input type="date" name="date" required defaultValue={t.date.slice(0, 10)} className="input" /></Field>
                         <Field label="Category *">
                           <input name="category" required defaultValue={t.category} className="input" list={`edit-cat-opts-${t.id}`} />
-                          <datalist id={`edit-cat-opts-${t.id}`}>{[...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES].map((c) => <option key={c} value={c} />)}</datalist>
+                          <datalist id={`edit-cat-opts-${t.id}`}>{categories.map((c) => <option key={c} value={c} />)}</datalist>
                         </Field>
                         <Field label={`Amount (${currency}) *`}><input name="amount" required inputMode="decimal" defaultValue={t.amount} className="input" /></Field>
                         <Field label="Description" className="sm:col-span-2"><input name="description" defaultValue={t.description ?? ""} className="input" /></Field>
