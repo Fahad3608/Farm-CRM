@@ -14,6 +14,7 @@ export async function saveTransactionAction(_prev: State, fd: FormData): Promise
   if (!can.editFinance(user.role)) return { error: "Not permitted." };
 
   const id = str(fd, "id");
+  let animalId: string | null = null;
   try {
     const amount = dec(fd, "amount");
     if (!amount || amount <= 0) return { error: "Enter an amount greater than zero." };
@@ -29,6 +30,7 @@ export async function saveTransactionAction(_prev: State, fd: FormData): Promise
       reference: str(fd, "reference"),
       animalId: str(fd, "animalId"),
     };
+    animalId = data.animalId;
 
     if (id) await prisma.transaction.update({ where: { id }, data });
     else await prisma.transaction.create({ data: { ...data, createdById: user.id } });
@@ -38,7 +40,28 @@ export async function saveTransactionAction(_prev: State, fd: FormData): Promise
 
   revalidatePath("/finance");
   revalidatePath("/dashboard");
+  if (animalId) revalidatePath(`/animals/${animalId}`);
   return { ok: "Transaction saved." };
+}
+
+/** Links an existing unlinked expense to an animal, from the "needs review" list. */
+export async function linkTransactionAnimalAction(fd: FormData) {
+  const user = await requireUser();
+  if (!can.editFinance(user.role)) throw new Error("Not permitted.");
+  const id = reqStr(fd, "id");
+  const animalId = reqStr(fd, "animalId", "Animal");
+  await prisma.transaction.update({ where: { id }, data: { animalId, notAnimalSpecific: false } });
+  revalidatePath("/finance");
+  revalidatePath(`/animals/${animalId}`);
+}
+
+/** Marks an expense as genuinely farm-wide, so it stops showing up as "needs review". */
+export async function markNotAnimalSpecificAction(fd: FormData) {
+  const user = await requireUser();
+  if (!can.editFinance(user.role)) throw new Error("Not permitted.");
+  const id = reqStr(fd, "id");
+  await prisma.transaction.update({ where: { id }, data: { notAnimalSpecific: true } });
+  revalidatePath("/finance");
 }
 
 export async function deleteTransactionAction(fd: FormData) {

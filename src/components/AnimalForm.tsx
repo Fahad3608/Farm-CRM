@@ -97,31 +97,39 @@ export default function AnimalForm({
         )}
       </Group>
 
-      <Group title="Appearance & features">
-        <Field label="Colour"><input name="color" defaultValue={values.color ?? ""} className="input" placeholder="Black & white" /></Field>
-        <Field label="Horns"><input name="hornStatus" defaultValue={values.hornStatus ?? ""} className="input" placeholder="Horned / polled / dehorned" list="horn-opts" /></Field>
-        <datalist id="horn-opts"><option value="Horned" /><option value="Polled (naturally hornless)" /><option value="Dehorned" /></datalist>
-        <Field label="Distinguishing marks" className="sm:col-span-2">
-          <input name="markings" defaultValue={values.markings ?? ""} className="input" placeholder="White patch on forehead, torn left ear…" />
-        </Field>
-        <Field label="Microchip / RFID"><input name="microchip" defaultValue={values.microchip ?? ""} className="input" /></Field>
-        <Field label="Insurance policy no."><input name="insuranceNo" defaultValue={values.insuranceNo ?? ""} className="input" /></Field>
-      </Group>
+      <details className="card p-4" open={Boolean(values.color || values.markings || values.hornStatus || values.microchip || values.insuranceNo || values.motherId || values.fatherId)}>
+        <summary className="cursor-pointer list-none text-[13px] font-semibold uppercase tracking-wide text-muted">
+          More details (optional) — appearance, features & parentage
+        </summary>
 
-      <Group title="Parentage">
-        <Field label="Mother (dam)">
-          <select name="motherId" defaultValue={values.motherId ?? ""} className="input">
-            <option value="">— Unknown / not on farm —</option>
-            {mothers.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-          </select>
-        </Field>
-        <Field label="Father (sire)">
-          <select name="fatherId" defaultValue={values.fatherId ?? ""} className="input">
-            <option value="">— Unknown / not on farm —</option>
-            {fathers.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-          </select>
-        </Field>
-      </Group>
+        <div className="mt-4 flex flex-col gap-4">
+          <Group title="Appearance & features">
+            <Field label="Colour"><input name="color" defaultValue={values.color ?? ""} className="input" placeholder="Black & white" /></Field>
+            <Field label="Horns"><input name="hornStatus" defaultValue={values.hornStatus ?? ""} className="input" placeholder="Horned / polled / dehorned" list="horn-opts" /></Field>
+            <datalist id="horn-opts"><option value="Horned" /><option value="Polled (naturally hornless)" /><option value="Dehorned" /></datalist>
+            <Field label="Distinguishing marks" className="sm:col-span-2">
+              <input name="markings" defaultValue={values.markings ?? ""} className="input" placeholder="White patch on forehead, torn left ear…" />
+            </Field>
+            <Field label="Microchip / RFID"><input name="microchip" defaultValue={values.microchip ?? ""} className="input" /></Field>
+            <Field label="Insurance policy no."><input name="insuranceNo" defaultValue={values.insuranceNo ?? ""} className="input" /></Field>
+          </Group>
+
+          <Group title="Parentage">
+            <Field label="Mother (dam)">
+              <select name="motherId" defaultValue={values.motherId ?? ""} className="input">
+                <option value="">— Unknown / not on farm —</option>
+                {mothers.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
+            </Field>
+            <Field label="Father (sire)">
+              <select name="fatherId" defaultValue={values.fatherId ?? ""} className="input">
+                <option value="">— Unknown / not on farm —</option>
+                {fathers.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
+            </Field>
+          </Group>
+        </div>
+      </details>
 
       {sex === "FEMALE" && (
         <Group title="Reproduction">

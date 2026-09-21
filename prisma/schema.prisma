@@ -382,6 +382,10 @@ model Transaction {
   // Kept when an animal is deleted, so money already spent can still be
   // attributed to it in the ledger. e.g. "Gauri (COW-001)".
   animalLabel String?
+  // An expense with no animalId is either unlinked by oversight, or genuinely
+  // farm-wide (electricity, general labour...). This distinguishes the two so
+  // the Finance page can flag the former without nagging about the latter.
+  notAnimalSpecific Boolean @default(false)
 
   // Auto-linked source rows (so costs are never double-counted)
   healthRecordId String? @unique
