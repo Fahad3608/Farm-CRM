@@ -13,6 +13,7 @@ import PhotoUploader from "@/components/PhotoUploader";
 import HealthRecordForm from "@/components/HealthRecordForm";
 import BreedingForm from "@/components/BreedingForm";
 import FeedLogForm from "@/components/FeedLogForm";
+import AnimalExpenseForm from "@/components/AnimalExpenseForm";
 import { AddMilkForm, AddWeightForm, SaleForm } from "@/components/LogForms";
 import { BarList } from "@/components/charts";
 import {
@@ -494,6 +495,16 @@ export default async function AnimalPage({
 
       {tab === "costs" && showMoney && (
         <div className="grid items-start gap-4 lg:grid-cols-2">
+          {can.editFinance(user.role) && (
+            <div className="lg:col-span-2">
+              <Disclosure label="Log an expense" tone="ghost">
+                <Card className="p-4">
+                  <AnimalExpenseForm animalId={animal.id} currency={settings.currency} />
+                </Card>
+              </Disclosure>
+            </div>
+          )}
+
           <Card className="p-4">
             <div className="grid grid-cols-3 gap-3 text-center">
               <div>

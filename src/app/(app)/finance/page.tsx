@@ -9,7 +9,7 @@ import Disclosure from "@/components/Disclosure";
 import ActionForm, { SubmitButton } from "@/components/ActionForm";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import { BarList, IncomeExpenseChart } from "@/components/charts";
-import { deleteTransactionAction, saveTransactionAction } from "@/app/actions/finance";
+import { deleteTransactionAction, linkTransactionAnimalAction, markNotAnimalSpecificAction, saveTransactionAction } from "@/app/actions/finance";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, SPECIES } from "@/lib/domain";
 import { fmtDate, money } from "@/lib/format";
 import { Icon } from "@/components/icons";
@@ -42,7 +42,8 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
 
   const page = Math.max(1, Number(sp.page ?? 1) || 1);
 
-  const [txns, txnCount, totals, byCategory, animals, perAnimal] = await Promise.all([
+  const needsReviewWhere = { type: "EXPENSE" as const, animalId: null, feedLogId: null, notAnimalSpecific: false };
+  const [txns, txnCount, totals, byCategory, animals, perAnimal, needsReview, needsReviewCount] = await Promise.all([
     prisma.transaction.findMany({
       where,
       orderBy: { date: "desc" },
@@ -61,6 +62,12 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       orderBy: { _sum: { amount: "desc" } },
       take: 12,
     }),
+    prisma.transaction.findMany({
+      where: needsReviewWhere,
+      orderBy: { date: "desc" },
+      take: 20,
+    }),
+    prisma.transaction.count({ where: needsReviewWhere }),
   ]);
 
   const income = Number(totals.find((t) => t.type === "INCOME")?._sum.amount ?? 0);
@@ -121,6 +128,50 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
         <StatTile label="Net" value={money(income - expense, settings.currency)} tone={income - expense >= 0 ? "good" : "bad"} />
         <StatTile label="Entries" value={txnCount} hint="Matching your filters" />
       </div>
+
+      {needsReviewCount > 0 && (
+        <div className="mb-4">
+          <Section
+            title="Needs review"
+            subtitle={`${needsReviewCount} expense${needsReviewCount === 1 ? "" : "s"} with no animal — link ${needsReviewCount === 1 ? "it" : "them"} or mark as farm-wide, so cost-per-animal stays accurate`}
+          >
+            <ul>
+              {needsReview.map((t) => (
+                <li key={t.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3 first:border-t-0">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge>{t.category}</Badge>
+                      <span className="text-[13.5px]">{t.description ?? "—"}</span>
+                    </div>
+                    <div className="mt-0.5 text-[12.5px] text-muted">
+                      {fmtDate(t.date)} · <span className="font-semibold text-bad">{money(t.amount, settings.currency)}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <form action={linkTransactionAnimalAction} className="flex items-center gap-1.5">
+                      <input type="hidden" name="id" value={t.id} />
+                      <select name="animalId" required className="input w-auto py-1.5 text-[13px]" defaultValue="">
+                        <option value="" disabled>Link to animal…</option>
+                        {animals.map((a) => <option key={a.id} value={a.id}>{a.name} ({a.tagId})</option>)}
+                      </select>
+                      <button className="btn-ghost btn-sm">Link</button>
+                    </form>
+                    <form action={markNotAnimalSpecificAction}>
+                      <input type="hidden" name="id" value={t.id} />
+                      <button className="btn-ghost btn-sm" title="This is a general farm cost, not tied to one animal">Farm-wide</button>
+                    </form>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {needsReviewCount > needsReview.length && (
+              <p className="border-t border-line px-4 py-2.5 text-[12.5px] text-muted">
+                Showing the most recent {needsReview.length} of {needsReviewCount}.
+              </p>
+            )}
+          </Section>
+        </div>
+      )}
 
       <div className="mb-4">
         <Disclosure label="Add transaction">
