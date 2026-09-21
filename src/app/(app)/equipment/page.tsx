@@ -22,8 +22,8 @@ export default async function EquipmentPage() {
   return <>
     <PageHeader title="Equipment & construction" subtitle="What we are building for the farm and what it has cost" action={<Link className="btn-ghost btn-sm" href="/finance">View Finance</Link>} />
     <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-      {Object.entries(EQUIPMENT_STATUS).map(([key, label]) => <StatTile key={key} label={label} value={items.filter(i => i.status === key).length} />)}
-      <StatTile label="Recorded costs" value={money([...totals.values()].reduce((sum, amount) => sum + amount, 0), settings.currency)} hint="Linked expenses · all time" />
+      {Object.entries(EQUIPMENT_STATUS).map(([key, label]) => <StatTile key={key} label={label} tone={key === "COMPLETED" ? "good" : key === "IN_PROGRESS" ? "warn" : "info"} value={items.filter(i => i.status === key).length} />)}
+      <StatTile label="Recorded costs" tone="accent" value={money([...totals.values()].reduce((sum, amount) => sum + amount, 0), settings.currency)} hint="Linked expenses · all time" />
     </div>
     <div className="mb-5"><Disclosure label="Add equipment or construction"><Card className="p-4"><EquipmentForm /></Card></Disclosure></div>
     {items.length === 0 ? <Card><Empty title="No items tracked yet" hint="Add equipment you are making or construction work, then record or link its expenses." /></Card> : <div className="grid gap-4 sm:grid-cols-2">
