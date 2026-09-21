@@ -54,6 +54,9 @@ export default function PhotoUploader({ animalId, isFirst }: { animalId: string;
   // the photo can be re-submitted without choosing it again.
   useEffect(() => {
     if (!state?.ok) return;
+    // Deriving this from state instead would wrongly blank the next pick too,
+    // since state stays ok until the following submit.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPreview(null);
     if (fullRef.current) fullRef.current.value = "";
     if (thumbRef.current) thumbRef.current.value = "";
