@@ -395,6 +395,8 @@ model Transaction {
   healthRecord   HealthRecord? @relation(fields: [healthRecordId], references: [id], onDelete: Cascade)
   feedLogId      String? @unique
   feedLog        FeedLog? @relation(fields: [feedLogId], references: [id], onDelete: Cascade)
+  batchCostId    String? @unique
+  batchCost      BatchCost? @relation(fields: [batchCostId], references: [id], onDelete: Cascade)
 
   createdById String?
   createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
@@ -472,6 +474,8 @@ model BatchCost {
   batch       PurchaseBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
   description String
   amount      Decimal  @db.Decimal(12, 2)
+
+  transaction Transaction?
 
   createdAt DateTime @default(now())
 

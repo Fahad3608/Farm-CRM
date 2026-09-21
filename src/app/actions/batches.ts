@@ -47,11 +47,20 @@ export async function addBatchCostAction(_prev: State, fd: FormData): Promise<St
     const amount = dec(fd, "amount");
     if (!amount || amount <= 0) return { error: "Enter an amount greater than zero." };
 
-    await prisma.batchCost.create({
+    const description = reqStr(fd, "description", "Description");
+    const batch = await prisma.purchaseBatch.findUniqueOrThrow({ where: { id: batchId }, select: { name: true, date: true } });
+    const cost = await prisma.batchCost.create({ data: { batchId, description, amount } });
+
+    await prisma.transaction.create({
       data: {
-        batchId,
-        description: reqStr(fd, "description", "Description"),
+        date: batch.date,
+        type: "EXPENSE",
+        category: "Batch Cost",
         amount,
+        description: `${description} — ${batch.name}`,
+        notAnimalSpecific: true,
+        batchCostId: cost.id,
+        createdById: user.id,
       },
     });
   } catch (e) {
@@ -59,6 +68,7 @@ export async function addBatchCostAction(_prev: State, fd: FormData): Promise<St
   }
 
   revalidatePath(`/batches/${batchId}`);
+  revalidatePath("/finance");
   return { ok: "Cost added." };
 }
 
@@ -69,6 +79,7 @@ export async function deleteBatchCostAction(fd: FormData) {
   const cost = await prisma.batchCost.findUnique({ where: { id }, select: { batchId: true } });
   await prisma.batchCost.delete({ where: { id } });
   if (cost) revalidatePath(`/batches/${cost.batchId}`);
+  revalidatePath("/finance");
 }
 
 export async function addAnimalToBatchAction(_prev: State, fd: FormData): Promise<State> {
@@ -107,5 +118,41 @@ export async function deleteBatchAction(fd: FormData) {
     prisma.purchaseBatch.delete({ where: { id } }),
   ]);
   revalidatePath("/batches");
+  revalidatePath("/finance");
   redirect("/batches");
+}
+
+export async function backfillBatchCostTransactionsAction(_prev: State, _fd: FormData): Promise<State> {
+  const user = await requireUser();
+  if (!can.editFinance(user.role)) return { error: "Not permitted." };
+
+  const costs = await prisma.batchCost.findMany({
+    where: { transaction: null },
+    include: { batch: { select: { name: true, date: true } } },
+  });
+
+  let added = 0;
+  for (const cost of costs) {
+    await prisma.transaction.create({
+      data: {
+        date: cost.batch.date,
+        type: "EXPENSE",
+        category: "Batch Cost",
+        amount: cost.amount,
+        description: `${cost.description} — ${cost.batch.name}`,
+        notAnimalSpecific: true,
+        batchCostId: cost.id,
+        createdById: user.id,
+      },
+    });
+    added++;
+  }
+
+  revalidatePath("/finance");
+  revalidatePath("/dashboard");
+  return {
+    ok: added > 0
+      ? `Added ${added} missing batch cost${added === 1 ? "" : "s"} to Finance.`
+      : "Nothing to fix — every batch cost already has a Finance entry.",
+  };
 }
