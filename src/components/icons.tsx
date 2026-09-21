@@ -32,6 +32,7 @@ export const Icon = {
   back: (p: P) => (<svg viewBox="0 0 24 24" className={p.className ?? base} {...s}><path d="M19 12H5M12 19l-7-7 7-7" /></svg>),
   camera: (p: P) => (<svg viewBox="0 0 24 24" className={p.className ?? base} {...s}><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><circle cx="12" cy="13" r="3.5" /></svg>),
   trash: (p: P) => (<svg viewBox="0 0 24 24" className={p.className ?? base} {...s}><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" /></svg>),
+  pencil: (p: P) => (<svg viewBox="0 0 24 24" className={p.className ?? base} {...s}><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>),
   search: (p: P) => (<svg viewBox="0 0 24 24" className={p.className ?? base} {...s}><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>),
   scale: (p: P) => (<svg viewBox="0 0 24 24" className={p.className ?? base} {...s}><path d="M12 3v18M7 21h10M4 8h16l-2 6H6z" /></svg>),
   milk: (p: P) => (<svg viewBox="0 0 24 24" className={p.className ?? base} {...s}><path d="M9 2h6v3l2 4v11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V9l2-4z" /><path d="M7 13h10" /></svg>),

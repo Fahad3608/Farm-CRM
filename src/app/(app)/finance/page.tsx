@@ -139,6 +139,8 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       category: t.category,
       description: t.description,
       vendor: t.vendor,
+      paymentMethod: t.paymentMethod,
+      reference: t.reference,
       type: t.type,
       amount: t.amount.toString(),
       isAuto: Boolean(t.healthRecordId || t.feedLogId),
@@ -356,8 +358,10 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
             <LedgerTable
               rows={ledgerRows}
               currency={settings.currency}
+              animals={animals}
               deleteOne={deleteTransactionAction}
               deleteSelected={deleteSelectedTransactionsAction}
+              saveTransaction={saveTransactionAction}
             />
           )}
 
