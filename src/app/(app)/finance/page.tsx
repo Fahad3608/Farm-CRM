@@ -124,37 +124,6 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
     })
     .sort((a, b) => b.value - a.value);
 
-  // Rolling last 12 months of "Operational" spend, independent of the page's
-  // date filter — a standing trend, not a one-off "this period" number, so
-  // it stays meaningful whatever the ledger above is currently filtered to.
-  const opsMonthsStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-  const opsCategories = allCategories.filter((c) => categoryGroupOf(c, assignedGroups) === "Operational");
-  const opsTxns = opsCategories.length
-    ? await prisma.transaction.findMany({
-        where: { type: "EXPENSE", category: { in: opsCategories }, date: { gte: opsMonthsStart } },
-        select: { date: true, amount: true },
-      })
-    : [];
-  const opsBuckets: { key: string; month: string; total: number }[] = [];
-  const opsCursor = new Date(opsMonthsStart);
-  for (let i = 0; i < 12; i++) {
-    opsBuckets.push({
-      key: `${opsCursor.getFullYear()}-${opsCursor.getMonth()}`,
-      month: opsCursor.toLocaleDateString(undefined, { month: "short", year: "2-digit" }),
-      total: 0,
-    });
-    opsCursor.setMonth(opsCursor.getMonth() + 1);
-  }
-  const opsBucketByKey = new Map(opsBuckets.map((b) => [b.key, b]));
-  for (const t of opsTxns) {
-    const d = new Date(t.date);
-    const b = opsBucketByKey.get(`${d.getFullYear()}-${d.getMonth()}`);
-    if (b) b.total += Number(t.amount);
-  }
-  const thisMonthOps = opsBuckets[opsBuckets.length - 1]?.total ?? 0;
-  const lastMonthOps = opsBuckets[opsBuckets.length - 2]?.total ?? 0;
-  const opsDelta = lastMonthOps > 0 ? Math.round(((thisMonthOps - lastMonthOps) / lastMonthOps) * 100) : null;
-
   // Every active animal, not just the ones with a cost already logged this
   // period — so an animal with nothing spent on it yet still shows up, at
   // PKR 0, instead of silently vanishing from the list.
@@ -385,25 +354,6 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       </form>
 
       <div className="grid items-start gap-4 lg:grid-cols-2">
-        <Section
-          title="Monthly operational cost"
-          subtitle="Feed, wages, utilities and the like — the recurring cost of running the farm, last 12 months, regardless of the filter above"
-          className="lg:col-span-2"
-        >
-          <div className="grid gap-4 p-4 sm:grid-cols-[200px_1fr]">
-            <StatTile
-              label="This month"
-              value={money(thisMonthOps, settings.currency)}
-              hint={opsDelta === null ? "No prior month to compare" : `${opsDelta > 0 ? "+" : ""}${opsDelta}% vs last month`}
-              tone={opsDelta === null ? "muted" : opsDelta > 0 ? "bad" : "good"}
-            />
-            <BarList
-              items={opsBuckets.map((b) => ({ label: b.month, value: b.total, display: money(b.total, settings.currency) }))}
-              emptyText="No operational categories set up yet — group some in Settings."
-            />
-          </div>
-        </Section>
-
         <Section title="Income vs expenses" subtitle={chartSubtitle} className="lg:col-span-2">
           <IncomeExpenseChart data={chartBuckets} currency={settings.currency} />
         </Section>
