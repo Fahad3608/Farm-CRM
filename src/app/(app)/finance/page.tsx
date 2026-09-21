@@ -44,7 +44,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
   const page = Math.max(1, Number(sp.page ?? 1) || 1);
 
   const needsReviewWhere = { type: "EXPENSE" as const, animalId: null, feedLogId: null, notAnimalSpecific: false };
-  const [txns, txnCount, totals, byCategory, animals, perAnimal, needsReview, needsReviewCount] = await Promise.all([
+  const [txns, txnCount, deletableCount, totals, byCategory, animals, perAnimal, needsReview, needsReviewCount] = await Promise.all([
     prisma.transaction.findMany({
       where,
       orderBy: { date: "desc" },
@@ -53,6 +53,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       include: { animal: { select: { id: true, name: true, tagId: true, species: true, profilePhotoId: true } } },
     }),
     prisma.transaction.count({ where }),
+    prisma.transaction.count({ where: { ...where, healthRecordId: null, feedLogId: null } }),
     prisma.transaction.groupBy({ by: ["type"], where: { date: { gte: from, lte: to } }, _sum: { amount: true } }),
     prisma.transaction.groupBy({ by: ["type", "category"], where: { date: { gte: from, lte: to } }, _sum: { amount: true } }),
     prisma.animal.findMany({ where: { status: "ACTIVE" }, select: { id: true, name: true, tagId: true }, orderBy: { tagId: "asc" } }),
@@ -315,17 +316,17 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
                   {showUsd ? "Hide USD" : "Show USD"}
                 </Link>
               )}
-              {sp.category && sp.category !== "ALL" && txnCount > 0 && (
+              {deletableCount > 0 && (
                 <form action={deleteFilteredTransactionsAction}>
                   <input type="hidden" name="from" value={dateVal(from)} />
                   <input type="hidden" name="to" value={dateVal(to)} />
                   <input type="hidden" name="type" value={sp.type ?? "ALL"} />
-                  <input type="hidden" name="category" value={sp.category} />
+                  <input type="hidden" name="category" value={sp.category ?? "ALL"} />
                   <ConfirmSubmit
-                    message={`Delete all ${txnCount} transaction${txnCount === 1 ? "" : "s"} in "${sp.category}" for this date range? This cannot be undone.`}
+                    message={`Delete ${deletableCount} transaction${deletableCount === 1 ? "" : "s"} (${fmtDate(from)} — ${fmtDate(to)}, category "${sp.category && sp.category !== "ALL" ? sp.category : "All categories"}")?${txnCount > deletableCount ? ` ${txnCount - deletableCount} auto-linked health/feed ${txnCount - deletableCount === 1 ? "entry" : "entries"} will be kept.` : ""} This cannot be undone.`}
                     className="btn-danger btn-sm"
                   >
-                    Delete all {txnCount} in &ldquo;{sp.category}&rdquo;
+                    Delete all {deletableCount} shown
                   </ConfirmSubmit>
                 </form>
               )}

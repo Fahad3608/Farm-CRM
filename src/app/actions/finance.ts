@@ -113,10 +113,11 @@ export async function markNotAnimalSpecificAction(fd: FormData) {
 }
 
 /**
- * Deletes every transaction matching a Finance-page filter (date range, type,
- * category) in one go — the undo button for a bulk paste that went in under
- * the wrong category. Auto-linked rows (from a health or feed record) are
- * left alone, same as the single delete.
+ * Deletes every transaction matching the Finance page's current filter
+ * (date range, type, category — "ALL" meaning that filter isn't applied) in
+ * one go, e.g. to undo a bulk paste that went in under the wrong category.
+ * Auto-linked rows (from a health or feed record) are left alone, same as
+ * the single delete.
  */
 export async function deleteFilteredTransactionsAction(fd: FormData) {
   const user = await requireUser();
@@ -125,12 +126,12 @@ export async function deleteFilteredTransactionsAction(fd: FormData) {
   const from = reqStr(fd, "from", "From");
   const to = reqStr(fd, "to", "To");
   const type = str(fd, "type");
-  const category = reqStr(fd, "category", "Category");
+  const category = str(fd, "category");
 
   await prisma.transaction.deleteMany({
     where: {
       date: { gte: new Date(`${from}T00:00:00`), lte: new Date(`${to}T23:59:59`) },
-      category,
+      ...(category && category !== "ALL" ? { category } : {}),
       ...(type && type !== "ALL" ? { type: type as TxnType } : {}),
       healthRecordId: null,
       feedLogId: null,
