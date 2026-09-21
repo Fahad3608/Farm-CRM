@@ -9,7 +9,7 @@ import Disclosure from "@/components/Disclosure";
 import ActionForm, { SubmitButton } from "@/components/ActionForm";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import { BarList, IncomeExpenseChart } from "@/components/charts";
-import { deleteTransactionAction, linkTransactionAnimalAction, markNotAnimalSpecificAction, saveBulkTransactionsAction, saveTransactionAction } from "@/app/actions/finance";
+import { deleteFilteredTransactionsAction, deleteTransactionAction, linkTransactionAnimalAction, markNotAnimalSpecificAction, saveBulkTransactionsAction, saveTransactionAction } from "@/app/actions/finance";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, SPECIES } from "@/lib/domain";
 import { fmtDate, money } from "@/lib/format";
 import { historicalRates, isoDate } from "@/lib/fx";
@@ -308,11 +308,29 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
           title="Ledger"
           subtitle={pageInfo}
           className="lg:col-span-2"
-          action={canShowUsd && (
-            <Link href={fxToggleHref()} className="btn-ghost btn-sm">
-              {showUsd ? "Hide USD" : "Show USD"}
-            </Link>
-          )}
+          action={
+            <div className="flex items-center gap-2">
+              {canShowUsd && (
+                <Link href={fxToggleHref()} className="btn-ghost btn-sm">
+                  {showUsd ? "Hide USD" : "Show USD"}
+                </Link>
+              )}
+              {sp.category && sp.category !== "ALL" && txnCount > 0 && (
+                <form action={deleteFilteredTransactionsAction}>
+                  <input type="hidden" name="from" value={dateVal(from)} />
+                  <input type="hidden" name="to" value={dateVal(to)} />
+                  <input type="hidden" name="type" value={sp.type ?? "ALL"} />
+                  <input type="hidden" name="category" value={sp.category} />
+                  <ConfirmSubmit
+                    message={`Delete all ${txnCount} transaction${txnCount === 1 ? "" : "s"} in "${sp.category}" for this date range? This cannot be undone.`}
+                    className="btn-danger btn-sm"
+                  >
+                    Delete all {txnCount} in &ldquo;{sp.category}&rdquo;
+                  </ConfirmSubmit>
+                </form>
+              )}
+            </div>
+          }
         >
           {txns.length === 0 ? (
             <Empty icon="🧾" title="No transactions in this period" />
