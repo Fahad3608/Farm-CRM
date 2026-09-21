@@ -17,7 +17,7 @@ npm run dev          # Start dev server
 npm run build        # prisma generate + migrate deploy + next build
 npm run lint         # next lint
 npm run db:seed      # Seed demo data (set SEED_DEMO_DATA=true)
-npm run db:migrate   # prisma migrate deploy
+npm run db:migrate   # prisma migrate deploy (see Migrations below)
 npm run db:studio    # Prisma Studio GUI
 ```
 
@@ -89,6 +89,15 @@ Built-in categories in `src/lib/domain.ts` (`EXPENSE_CATEGORIES`, `INCOME_CATEGO
 ### Migrations
 
 Migrations are created manually as SQL files (no `prisma migrate dev` — use `prisma migrate deploy` to apply). Follow existing naming convention: `YYYYMMDDHHMMSS_description/migration.sql`.
+
+Deploys go through `scripts/migrate-deploy.mjs` instead of calling `prisma migrate deploy` directly. A migration that errors stays in the history unfinished and Prisma then rejects every later deploy with P3009; since the build is the only thing that reaches the production database, a broken migration would otherwise lock the app out of deploying forever. The script marks such a migration rolled back and retries once. A migration that fails on its first attempt still fails the build.
+
+Two things to get right in raw SQL that Prisma normally handles:
+
+- `updatedAt` columns are `@updatedAt`, which Prisma fills from the client. There is no database default, so every insert must set it (`CURRENT_TIMESTAMP`).
+- Enum columns need an explicit cast (`'EXPENSE'::"TxnType"`); Postgres will not coerce text to an enum on insert.
+
+CI runs migrations against an empty database, so a data migration that reads existing rows (looking up the OWNER user, for instance) inserts nothing there and passes regardless. Green CI is not evidence that a data migration works.
 
 ### Key models
 
