@@ -24,7 +24,6 @@ function readAnimal(fd: FormData) {
     breed: str(fd, "breed"),
     sex: enumOf<Sex>(fd, "sex", SEX_VALUES, "FEMALE"),
     color: str(fd, "color"),
-    markings: str(fd, "markings"),
     hornStatus: str(fd, "hornStatus"),
     dateOfBirth: date(fd, "dateOfBirth"),
     ageIsEstimated: bool(fd, "ageIsEstimated"),

@@ -28,11 +28,13 @@ import { deleteBreedingAction } from "@/app/actions/breeding";
 
 export const dynamic = "force-dynamic";
 
-function Detail({ label, value }: { label: string; value: React.ReactNode }) {
+/** A compact label/value row — skips itself entirely when there's nothing to show, so a card only ever displays what's actually known. */
+function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+  if (value === null || value === undefined || value === "") return null;
   return (
-    <div className="border-b border-line px-4 py-2.5 last:border-b-0 sm:border-b-0">
-      <dt className="text-[12px] uppercase tracking-wide text-muted">{label}</dt>
-      <dd className="mt-0.5 text-[14.5px]">{value ?? "—"}</dd>
+    <div className="flex items-baseline justify-between gap-4 border-b border-line/70 px-4 py-2.5 text-[14px] last:border-b-0">
+      <dt className="shrink-0 text-muted">{label}</dt>
+      <dd className="min-w-0 text-right font-medium">{value}</dd>
     </div>
   );
 }
@@ -147,56 +149,64 @@ export default async function AnimalPage({
 
       <Tabs base={`/animals/${animal.id}`} current={tab} tabs={tabs} />
 
-      {tab === "overview" && (
-        <div className="grid items-start gap-4 lg:grid-cols-2">
-          <Section title="Identity & features">
-            <dl className="grid sm:grid-cols-2 sm:gap-y-1 sm:py-2">
-              <Detail label="Sex" value={animal.sex === "FEMALE" ? "Female" : "Male"} />
-              <Detail label="Colour" value={animal.color} />
-              <Detail label="Horns" value={animal.hornStatus} />
-              <Detail label="Distinguishing marks" value={animal.markings} />
-            </dl>
-          </Section>
+      {tab === "overview" && (() => {
+        const bornOnFarm = animal.acquisition === "BORN_ON_FARM";
+        const hasFamily = animal.mother || animal.father || animal.damOf.length > 0;
 
-          <Section title="Age & arrival">
-            <dl className="grid sm:grid-cols-2 sm:gap-y-1 sm:py-2">
-              <Detail label="Date of birth" value={animal.dateOfBirth ? `${fmtDate(animal.dateOfBirth)}${animal.ageIsEstimated ? " (est.)" : ""}` : "Unknown"} />
-              <Detail label="Current age" value={age?.label ?? "Unknown"} />
-              <Detail label="Joined the farm" value={fmtDate(animal.dateJoined)} />
-              <Detail label="How it joined" value={ACQUISITION_LABEL[animal.acquisition]} />
-              <Detail label="Seller / source" value={animal.sourceName} />
-              {showMoney && <Detail label="Purchase price" value={animal.purchasePrice ? money(animal.purchasePrice, settings.currency) : "—"} />}
-            </dl>
-          </Section>
+        // A plain-language opening line, then the reference grid below it for the rest.
+        const arrival = bornOnFarm
+          ? `born on the farm${animal.dateOfBirth ? ` on ${fmtDate(animal.dateOfBirth)}` : ""}`
+          : `${ACQUISITION_LABEL[animal.acquisition].toLowerCase()} on ${fmtDate(animal.dateJoined)}${animal.sourceName ? ` from ${animal.sourceName}` : ""}`;
 
-          <Section title="Family">
-            <dl className="grid sm:grid-cols-2 sm:gap-y-1 sm:py-2">
-              <Detail label="Mother" value={animal.mother ? <Link className="text-brand hover:underline" href={`/animals/${animal.mother.id}`}>{animal.mother.name} ({animal.mother.tagId})</Link> : "Unknown"} />
-              <Detail label="Father" value={animal.father ? <Link className="text-brand hover:underline" href={`/animals/${animal.father.id}`}>{animal.father.name} ({animal.father.tagId})</Link> : "Unknown"} />
-              <Detail
-                label="Offspring"
-                value={animal.damOf.length
-                  ? <span className="flex flex-wrap gap-1.5">{animal.damOf.map((c) => <Link key={c.id} href={`/animals/${c.id}`} className="chip hover:bg-surface2">{c.name}</Link>)}</span>
-                  : "None recorded"}
-              />
-            </dl>
-          </Section>
-
-          <Section title="Notes">
-            <p className="whitespace-pre-wrap px-4 py-3 text-[14.5px] text-muted">{animal.notes || "No notes yet."}</p>
-          </Section>
-
-          {animal.status !== "ACTIVE" && (
-            <Section title="Left the farm">
-              <dl className="grid sm:grid-cols-2 sm:gap-y-1 sm:py-2">
-                <Detail label="Status" value={STATUS_LABEL[animal.status]} />
-                <Detail label="Date" value={fmtDate(animal.exitDate)} />
-                <Detail label="Buyer" value={animal.buyerName} />
-                {showMoney && <Detail label="Sale price" value={animal.salePrice ? money(animal.salePrice, settings.currency) : "—"} />}
-                <Detail label="Reason" value={animal.exitReason} />
+        return (
+          <div className="grid items-start gap-4 lg:grid-cols-2">
+            <Section title="About" className="lg:col-span-2">
+              <p className="px-4 pb-1 pt-3 text-[15px] leading-relaxed">
+                <span className="font-semibold">{animal.name}</span> is a
+                {age ? ` ${age.label} old` : ""}{animal.breed ? ` ${animal.breed}` : ""} {stage.toLowerCase()}
+                {animal.color ? `, ${animal.color.toLowerCase()} in colour` : ""}, {arrival}
+                {animal.penOrLocation ? `, currently kept in ${animal.penOrLocation}` : ""}.
+              </p>
+              <dl className="mt-2 grid sm:grid-cols-2">
+                <InfoRow label="Sex" value={animal.sex === "FEMALE" ? "Female" : "Male"} />
+                <InfoRow label="Horns" value={animal.hornStatus} />
+                <InfoRow label="Date of birth" value={animal.dateOfBirth ? `${fmtDate(animal.dateOfBirth)}${animal.ageIsEstimated ? " (est.)" : ""}` : null} />
+                <InfoRow label="Joined the farm" value={fmtDate(animal.dateJoined)} />
+                {!bornOnFarm && <InfoRow label="Seller / source" value={animal.sourceName} />}
+                {showMoney && animal.purchasePrice && <InfoRow label="Purchase price" value={money(animal.purchasePrice, settings.currency)} />}
               </dl>
             </Section>
-          )}
+
+            {bornOnFarm && hasFamily && (
+              <Section title="Family">
+                <dl className="grid sm:grid-cols-2 sm:gap-y-1 sm:py-2">
+                  <InfoRow label="Mother" value={animal.mother ? <Link className="text-brand hover:underline" href={`/animals/${animal.mother.id}`}>{animal.mother.name} ({animal.mother.tagId})</Link> : null} />
+                  <InfoRow label="Father" value={animal.father ? <Link className="text-brand hover:underline" href={`/animals/${animal.father.id}`}>{animal.father.name} ({animal.father.tagId})</Link> : null} />
+                  {animal.damOf.length > 0 && (
+                    <InfoRow
+                      label="Offspring"
+                      value={<span className="flex flex-wrap justify-end gap-1.5">{animal.damOf.map((c) => <Link key={c.id} href={`/animals/${c.id}`} className="chip hover:bg-surface2">{c.name}</Link>)}</span>}
+                    />
+                  )}
+                </dl>
+              </Section>
+            )}
+
+            <Section title="Notes" className={bornOnFarm && hasFamily ? "" : "lg:col-span-2"}>
+              <p className="whitespace-pre-wrap px-4 py-3 text-[14.5px] text-muted">{animal.notes || "No notes yet."}</p>
+            </Section>
+
+            {animal.status !== "ACTIVE" && (
+              <Section title="Left the farm">
+                <dl className="grid sm:grid-cols-2 sm:gap-y-1 sm:py-2">
+                  <InfoRow label="Status" value={STATUS_LABEL[animal.status]} />
+                  <InfoRow label="Date" value={fmtDate(animal.exitDate)} />
+                  <InfoRow label="Buyer" value={animal.buyerName} />
+                  {showMoney && <InfoRow label="Sale price" value={animal.salePrice ? money(animal.salePrice, settings.currency) : null} />}
+                  <InfoRow label="Reason" value={animal.exitReason} />
+                </dl>
+              </Section>
+            )}
 
           {can.manageAnimals(user.role) && animal.status === "ACTIVE" && (
             <Section title="Record a sale, death or transfer">
@@ -220,8 +230,9 @@ export default async function AnimalPage({
               </form>
             </Card>
           )}
-        </div>
-      )}
+          </div>
+        );
+      })()}
 
       {tab === "health" && (
         <div className="flex flex-col gap-4">

@@ -88,7 +88,6 @@ async function main() {
         penOrLocation: a.species === "COW" ? "Shed A" : "Goat pen B",
         reproStatus: a.pregnant ? "PREGNANT" : a.sex === "FEMALE" && a.months > 20 ? "LACTATING" : "NOT_APPLICABLE",
         expectedDueDate: a.pregnant ? new Date(Date.now() + (a.species === "GOAT" ? 45 : 90) * 86400000) : null,
-        markings: a.color.includes("patch") ? "White patch on forehead" : null,
         hornStatus: a.species === "GOAT" ? "Horned" : "Dehorned",
       },
     });

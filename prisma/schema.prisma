@@ -99,7 +99,6 @@ model Animal {
   breed     String?
   sex       Sex
   color     String?
-  markings  String?                  // distinguishing features
   hornStatus String?                 // horned / polled / dehorned
 
   dateOfBirth      DateTime?

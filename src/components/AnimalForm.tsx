@@ -11,7 +11,7 @@ type Option = { id: string; label: string };
 export type AnimalFormValues = {
   id?: string;
   tagId?: string; name?: string; species?: string; breed?: string | null; sex?: string;
-  color?: string | null; markings?: string | null; hornStatus?: string | null;
+  color?: string | null; hornStatus?: string | null;
   dateOfBirth?: string; ageIsEstimated?: boolean; dateJoined?: string; acquisition?: string;
   sourceName?: string | null; purchasePrice?: string | null; status?: string;
   exitDate?: string; exitReason?: string | null; salePrice?: string | null; buyerName?: string | null;
@@ -69,7 +69,11 @@ export default function AnimalForm({
         </Field>
         <Field label="Species *">
           <select name="species" value={species} onChange={(e) => handleSpeciesChange(e.target.value)} className="input">
-            {SPECIES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            {SPECIES.map(([v, l]) => (
+              <option key={v} value={v}>
+                {v === "CALF" ? `Calf (${sex === "MALE" ? "Bachra" : "Bachri"}) 🐮` : l}
+              </option>
+            ))}
           </select>
         </Field>
         <Field label="Tag / Farm ID *" hint={values.id ? "Must be unique" : "Auto-filled from species — edit if you want a custom one"}>
@@ -125,7 +129,7 @@ export default function AnimalForm({
         )}
       </Group>
 
-      <details className="card p-4" open={Boolean(values.markings || values.hornStatus || values.motherId || values.fatherId)}>
+      <details className="card p-4" open={Boolean(values.hornStatus || values.motherId || values.fatherId)}>
         <summary className="cursor-pointer list-none text-[13px] font-semibold uppercase tracking-wide text-muted">
           More details (optional) — features & parentage
         </summary>
@@ -134,9 +138,6 @@ export default function AnimalForm({
           <Group title="Features">
             <Field label="Horns"><input name="hornStatus" defaultValue={values.hornStatus ?? ""} className="input" placeholder="Horned / polled / dehorned" list="horn-opts" /></Field>
             <datalist id="horn-opts"><option value="Horned" /><option value="Polled (naturally hornless)" /><option value="Dehorned" /></datalist>
-            <Field label="Distinguishing marks" className="sm:col-span-2">
-              <input name="markings" defaultValue={values.markings ?? ""} className="input" placeholder="White patch on forehead, torn left ear…" />
-            </Field>
           </Group>
 
           <Group title="Parentage">
