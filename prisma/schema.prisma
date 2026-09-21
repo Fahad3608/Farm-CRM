@@ -386,6 +386,8 @@ model Transaction {
   // Kept when an animal is deleted, so money already spent can still be
   // attributed to it in the ledger. e.g. "Gauri (COW-001)".
   animalLabel String?
+  equipmentId String?
+  equipment Equipment? @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
   // Whose pocket the money came from — a partner, an investor, or whoever
   // fronted the cash. Free text so an old entry keeps its label even if that
   // payer is later removed from the suggestion list; see the Payer model.
@@ -415,6 +417,7 @@ model Transaction {
   @@index([type, category])
   @@index([animalId])
   @@index([paidBy])
+  @@index([equipmentId])
 }
 
 // A category someone has deliberately set up, so it always offers itself as
@@ -578,4 +581,31 @@ model Sale {
 
   @@index([customerId, date])
   @@index([date])
+}
+
+
+// Items being built for the farm; expenses remain in the single finance ledger.
+enum EquipmentStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum EquipmentKind {
+  EQUIPMENT
+  CONSTRUCTION
+}
+
+model Equipment {
+  id String @id @default(cuid())
+  name String
+  kind EquipmentKind @default(EQUIPMENT)
+  status EquipmentStatus @default(PLANNED)
+  location String?
+  notes String?
+  transactions Transaction[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
 }

@@ -7,12 +7,13 @@ import { getSettings } from "@/lib/settings";
 import { Badge, Card, Empty, Field, PageHeader, Section, StatTile } from "@/components/ui";
 import Disclosure from "@/components/Disclosure";
 import ActionForm, { SubmitButton } from "@/components/ActionForm";
+import RecordActions from "@/components/RecordActions";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import { BarList, IncomeExpenseChart } from "@/components/charts";
 import { categorizeExpenseAction, bulkEditSelectedTransactionsAction, deleteFilteredTransactionsAction, deleteSelectedTransactionsAction, deleteTransactionAction, editFilteredTransactionsAction, linkTransactionAnimalAction, markNotAnimalSpecificAction, saveBulkTransactionsAction, saveTransactionAction } from "@/app/actions/finance";
 import ExpenseCategoryManager from "@/components/ExpenseCategoryManager";
 import MonthlyExpenses from "@/components/MonthlyExpenses";
-import { monthlyExpenses } from "@/lib/monthlyExpenses";
+import { monthlyExpenses, EXPENSE_GROUP_LABELS } from "@/lib/monthlyExpenses";
 import LedgerTable, { type LedgerRow } from "@/components/LedgerTable";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, NO_PAYER, categoryGroupOf } from "@/lib/domain";
 import { fmtDate, money } from "@/lib/format";
@@ -74,7 +75,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       orderBy: { date: "desc" },
       skip: (page - 1) * PER_PAGE,
       take: PER_PAGE,
-      include: { animal: { select: { id: true, name: true, tagId: true, species: true, profilePhotoId: true } } },
+      include: { animal: { select: { id: true, name: true, tagId: true, species: true, profilePhotoId: true } }, equipment: { select: { id: true, name: true } } },
     }),
     prisma.transaction.count({ where }),
     prisma.transaction.count({ where: { ...where, healthRecordId: null, feedLogId: null, batchCostId: null, saleId: null } }),
@@ -156,7 +157,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       q.delete("page");
       q.set("type", "EXPENSE");
       v.categories.forEach((c) => q.append("category", c));
-      return { label, value: v.total, display: money(v.total, settings.currency), href: `/finance?${q.toString()}` };
+      return { label: EXPENSE_GROUP_LABELS[label] ?? label, value: v.total, display: money(v.total, settings.currency), href: `/finance?${q.toString()}` };
     })
     .sort((a, b) => b.value - a.value);
 
@@ -230,6 +231,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       amount: t.amount.toString(),
       isAuto: Boolean(t.healthRecordId || t.feedLogId || t.batchCostId || t.saleId),
       animal: t.animal,
+      equipment: t.equipment,
       animalLabel: t.animalLabel,
       usdText: showUsd ? (rate ? `≈ ${money(Number(t.amount) * rate, "USD")} on ${fmtDate(t.date)}` : "USD rate unavailable") : null,
     };
@@ -237,7 +239,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
 
   return (
     <>
-      <PageHeader title="Finances" subtitle={`${fmtDate(from)} — ${fmtDate(to)} · totals match your filters`} />
+      <PageHeader title="Finances" subtitle={`${fmtDate(from)} — ${fmtDate(to)} · totals match your filters`} action={<Link href="/equipment" className="btn-ghost btn-sm">Equipment & construction</Link>} />
 
       <form className="mb-4 flex flex-wrap items-end gap-2" action="/finance">
         <Field label="From"><input type="date" name="from" defaultValue={dateVal(from)} className="input w-auto" /></Field>
@@ -284,7 +286,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
         <StatTile label="Income" value={money(income, settings.currency)} tone="good" />
         <StatTile label="Expenses" value={money(expense, settings.currency)} tone="bad" />
         <StatTile label="Income less expenses" hint="Recorded entries, not a profit calculation" value={money(income - expense, settings.currency)} tone={income - expense >= 0 ? "good" : "bad"} />
-        <StatTile label="Running costs" value={money(groupTotals.get("Operational")?.total ?? 0, settings.currency)} hint="Day-to-day portion of expenses" />
+        <StatTile label="Operational costs" value={money(groupTotals.get("Operational")?.total ?? 0, settings.currency)} hint="Day-to-day portion of expenses" />
       </div>
 
       <div className="mb-5">
@@ -520,19 +522,19 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
                 </Link>
               )}
               {deletableCount > 0 && (
-                <form action={deleteFilteredTransactionsAction}>
+                <RecordActions label="Ledger actions"><form action={deleteFilteredTransactionsAction}>
                   <input type="hidden" name="from" value={dateVal(from)} />
                   <input type="hidden" name="to" value={dateVal(to)} />
                   <input type="hidden" name="type" value={sp.type ?? "ALL"} />
                   <input type="hidden" name="paidBy" value={payerFilter} />
                   {selectedCategories.map((c) => <input key={c} type="hidden" name="category" value={c} />)}
-                  <ConfirmSubmit
+                  <ConfirmSubmit className="record-delete-action"
                     message={`Delete ${deletableCount} transaction${deletableCount === 1 ? "" : "s"} (${fmtDate(from)} — ${fmtDate(to)}, category "${categoryLabel}")?${txnCount > deletableCount ? ` ${txnCount - deletableCount} auto-linked health/feed ${txnCount - deletableCount === 1 ? "entry" : "entries"} will be kept.` : ""} This cannot be undone.`}
-                    className="btn-danger btn-sm"
+
                   >
                     Delete all {deletableCount} shown
                   </ConfirmSubmit>
-                </form>
+                </form></RecordActions>
               )}
             </div>
           }

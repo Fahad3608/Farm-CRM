@@ -30,6 +30,8 @@ export async function addMilkAction(_prev: State, fd: FormData): Promise<State> 
   if (!can.writeDailyLogs(user.role)) return { error: "Not permitted." };
   const animalId = reqStr(fd, "animalId");
   try {
+    const animal = await prisma.animal.findUnique({ where: { id: animalId }, select: { sex: true } });
+    if (!animal || animal.sex !== "FEMALE") return { error: "Milk can only be recorded for female animals." };
     const litres = dec(fd, "litres");
     if (litres === null) return { error: "Enter the litres produced." };
     await prisma.milkRecord.create({

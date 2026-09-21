@@ -8,6 +8,7 @@ import { Avatar, Badge, Card, Empty, Section, StatTile } from "@/components/ui";
 import { Icon } from "@/components/icons";
 import Tabs from "@/components/Tabs";
 import Disclosure from "@/components/Disclosure";
+import RecordActions from "@/components/RecordActions";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import PhotoUploader from "@/components/PhotoUploader";
 import HealthRecordForm from "@/components/HealthRecordForm";
@@ -99,13 +100,14 @@ export default async function AnimalPage({
   const dams = allAnimals.filter((a) => a.sex === "FEMALE").map(opt);
   const sires = allAnimals.filter((a) => a.sex === "MALE").map(opt);
 
+  const showMilk = animal.sex === "FEMALE";
   const tabs = showHistory
     ? [
         { key: "overview", label: "Overview" },
         { key: "health", label: "Health", count: animal.healthRecords.length },
         { key: "feed", label: "Feed", count: animal.feedLogs.length },
         ...(can.viewBreeding(user.role) && animal.sex === "FEMALE" ? [{ key: "breeding", label: "Breeding", count: animal.breedingAsDam.length }] : []),
-        { key: "growth", label: "Growth & milk", count: animal.weights.length + animal.milkRecords.length },
+        { key: "growth", label: showMilk ? "Growth & milk" : "Growth", count: animal.weights.length + (showMilk ? animal.milkRecords.length : 0) },
         { key: "photos", label: "Photos", count: animal.photos.length },
         ...(showMoney ? [{ key: "costs", label: "Costs" }] : []),
       ]
@@ -146,6 +148,10 @@ export default async function AnimalPage({
         {can.manageAnimals(user.role) && (
           <div className="flex gap-2">
             <Link href={`/animals/${animal.id}/edit`} className="btn-ghost btn-sm">Edit</Link>
+            <RecordActions label="Animal actions"><form action={deleteAnimalAction}>
+                <input type="hidden" name="id" value={animal.id} />
+                <ConfirmSubmit className="record-delete-action" message={`Delete ${animal.name} and its health, feed, breeding and photo records permanently? Financial entries stay in the ledger. To keep its history, mark it Sold or Deceased instead. This cannot be undone.`}>Delete animal</ConfirmSubmit>
+              </form></RecordActions>
           </div>
         )}
       </header>
@@ -242,23 +248,6 @@ export default async function AnimalPage({
               <div className="p-4"><SaleForm animalId={animal.id} currency={settings.currency} /></div>
             </Section>
           )}
-
-          {can.manageAnimals(user.role) && (
-            <Card className="p-4">
-              <h2 className="h2 text-bad">Danger zone</h2>
-              <p className="mt-1 text-[13px] text-muted">
-                Deleting removes this animal and its health, feed, breeding and photo records permanently.
-                Money already spent stays in your accounts, labelled &ldquo;{animal.name} ({animal.tagId})&rdquo;,
-                so your totals do not change. To keep the full history, mark it Sold or Deceased instead.
-              </p>
-              <form action={deleteAnimalAction} className="mt-3">
-                <input type="hidden" name="id" value={animal.id} />
-                <ConfirmSubmit message={`Delete ${animal.name} and all its records? This cannot be undone.`}>
-                  <Icon.trash className="h-4 w-4" /> Delete animal
-                </ConfirmSubmit>
-              </form>
-            </Card>
-          )}
           </div>
         );
       })()}
@@ -316,12 +305,10 @@ export default async function AnimalPage({
                           </span>
                         )}
                         {can.writeHealth(user.role) && (
-                          <form action={deleteHealthRecordAction}>
+                          <RecordActions label="Health record actions"><form action={deleteHealthRecordAction}>
                             <input type="hidden" name="id" value={r.id} />
-                            <ConfirmSubmit message="Delete this health record?" className="rounded-lg p-1.5 text-muted hover:bg-surface2 hover:text-bad">
-                              <Icon.trash className="h-4 w-4" />
-                            </ConfirmSubmit>
-                          </form>
+                            <ConfirmSubmit className="record-delete-action" message="Delete this health record?">Delete health record</ConfirmSubmit>
+                          </form></RecordActions>
                         )}
                       </div>
                     </div>
@@ -422,12 +409,10 @@ export default async function AnimalPage({
                         {b.notes && <p className="mt-1 text-[13.5px] text-muted">{b.notes}</p>}
                       </div>
                       {can.writeBreeding(user.role) && (
-                        <form action={deleteBreedingAction}>
+                        <RecordActions label="Breeding record actions"><form action={deleteBreedingAction}>
                           <input type="hidden" name="id" value={b.id} />
-                          <ConfirmSubmit message="Delete this breeding record?" className="rounded-lg p-1.5 text-muted hover:bg-surface2 hover:text-bad">
-                            <Icon.trash className="h-4 w-4" />
-                          </ConfirmSubmit>
-                        </form>
+                          <ConfirmSubmit className="record-delete-action" message="Delete this breeding record?">Delete breeding record</ConfirmSubmit>
+                        </form></RecordActions>
                       )}
                     </div>
                   </li>
@@ -439,7 +424,7 @@ export default async function AnimalPage({
       )}
 
       {tab === "growth" && (
-        <div className="grid items-start gap-4 lg:grid-cols-2">
+        <div className={`grid items-start gap-4 ${showMilk ? "lg:grid-cols-2" : ""}`}>
           <Section title="Weight history" subtitle={animal.weights[0] ? `Latest: ${num(animal.weights[0].weightKg, 1)} kg` : undefined}>
             <div className="border-b border-line p-4"><AddWeightForm animalId={animal.id} /></div>
             {animal.weights.length === 0 ? (
@@ -453,7 +438,7 @@ export default async function AnimalPage({
             )}
           </Section>
 
-          <Section title="Milk production" subtitle="Last 30 entries">
+          {showMilk && <Section title="Milk production" subtitle="Last 30 entries">
             {can.writeDailyLogs(user.role) && <div className="border-b border-line p-4"><AddMilkForm animalId={animal.id} /></div>}
             {animal.milkRecords.length === 0 ? (
               <Empty icon="🥛" title="No milk recorded" hint="Useful for dairy cows and does in milk." />
@@ -468,12 +453,12 @@ export default async function AnimalPage({
                         <td className="td">{m.session}</td>
                         <td className="td tabular-nums">{num(m.litres, 2)}</td>
                         <td className="td text-right">
-                          <form action={deleteLogAction}>
+                          <RecordActions label="Milk record actions"><form action={deleteLogAction}>
                             <input type="hidden" name="kind" value="milk" />
                             <input type="hidden" name="id" value={m.id} />
                             <input type="hidden" name="animalId" value={animal.id} />
-                            <button className="rounded-lg p-1.5 text-muted hover:text-bad"><Icon.trash className="h-4 w-4" /></button>
-                          </form>
+                            <ConfirmSubmit className="record-delete-action" message="Delete this milk record? This cannot be undone.">Delete milk record</ConfirmSubmit>
+                          </form></RecordActions>
                         </td>
                       </tr>
                     ))}
@@ -481,7 +466,7 @@ export default async function AnimalPage({
                 </table>
               </div>
             )}
-          </Section>
+          </Section>}
         </div>
       )}
 
@@ -514,13 +499,11 @@ export default async function AnimalPage({
                         </form>
                       )}
                       {can.manageAnimals(user.role) && (
-                        <form action={deletePhotoAction}>
+                        <RecordActions label="Photo actions"><form action={deletePhotoAction}>
                           <input type="hidden" name="animalId" value={animal.id} />
                           <input type="hidden" name="photoId" value={p.id} />
-                          <ConfirmSubmit message="Delete this photo?" className="rounded p-1 text-muted hover:text-bad">
-                            <Icon.trash className="h-3.5 w-3.5" />
-                          </ConfirmSubmit>
-                        </form>
+                          <ConfirmSubmit className="record-delete-action" message="Delete this photo?">Delete photo</ConfirmSubmit>
+                        </form></RecordActions>
                       )}
                     </div>
                   </div>

@@ -7,6 +7,7 @@ import { getSettings } from "@/lib/settings";
 import { Badge, Card, Empty, Section, StatTile } from "@/components/ui";
 import { Icon } from "@/components/icons";
 import Disclosure from "@/components/Disclosure";
+import RecordActions from "@/components/RecordActions";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import BatchForm from "@/components/BatchForm";
 import BatchCostForm from "@/components/BatchCostForm";
@@ -64,11 +65,17 @@ export default async function BatchDetailPage({ params }: { params: Promise<{ id
             {batch.notes && <p className="mt-1 text-[14px] text-muted">{batch.notes}</p>}
           </div>
           {canEdit && (
-            <Disclosure label="Edit batch">
+            <div className="flex items-start gap-2">
+              <Disclosure label="Edit batch">
               <Card className="p-4 w-80">
                 <BatchForm batch={{ id: batch.id, name: batch.name, date: batch.date, notes: batch.notes }} />
               </Card>
             </Disclosure>
+              <RecordActions label="Batch actions"><form action={deleteBatchAction}>
+              <input type="hidden" name="id" value={batch.id} />
+              <ConfirmSubmit className="record-delete-action" message={`Delete batch "${batch.name}" and all its shared costs? The animals themselves won't be affected.`}>Delete batch</ConfirmSubmit>
+            </form></RecordActions>
+            </div>
           )}
         </div>
       </header>
@@ -130,13 +137,11 @@ export default async function BatchDetailPage({ params }: { params: Promise<{ id
                         <td className="td text-right tabular-nums font-semibold">{money(price + perAnimalShare, settings.currency)}</td>
                         {canEdit && (
                           <td className="td text-right">
-                            <form action={removeAnimalFromBatchAction}>
+                            <RecordActions label="Batch animal actions"><form action={removeAnimalFromBatchAction}>
                               <input type="hidden" name="animalId" value={a.id} />
                               <input type="hidden" name="batchId" value={batch.id} />
-                              <ConfirmSubmit message={`Remove ${a.name} from this batch?`} className="rounded-lg p-1.5 text-muted hover:bg-surface2 hover:text-bad">
-                                <Icon.trash className="h-4 w-4" />
-                              </ConfirmSubmit>
-                            </form>
+                              <ConfirmSubmit className="record-delete-action" message={`Remove ${a.name} from this batch?`}>Remove from batch</ConfirmSubmit>
+                            </form></RecordActions>
                           </td>
                         )}
                       </tr>
@@ -177,12 +182,10 @@ export default async function BatchDetailPage({ params }: { params: Promise<{ id
                   <div className="flex shrink-0 items-center gap-3">
                     <span className="tabular-nums font-semibold">{money(c.amount, settings.currency)}</span>
                     {canEdit && (
-                      <form action={deleteBatchCostAction}>
+                      <RecordActions label="Shared cost actions"><form action={deleteBatchCostAction}>
                         <input type="hidden" name="id" value={c.id} />
-                        <ConfirmSubmit message={`Delete "${c.description}"?`} className="rounded-lg p-1.5 text-muted hover:bg-surface2 hover:text-bad">
-                          <Icon.trash className="h-4 w-4" />
-                        </ConfirmSubmit>
-                      </form>
+                        <ConfirmSubmit className="record-delete-action" message={`Delete "${c.description}"?`}>Delete shared cost</ConfirmSubmit>
+                      </form></RecordActions>
                     )}
                   </div>
                 </li>
@@ -201,21 +204,6 @@ export default async function BatchDetailPage({ params }: { params: Promise<{ id
           )}
         </Section>
 
-        {/* Danger zone */}
-        {canEdit && (
-          <Card className="p-4">
-            <h2 className="h2 text-bad">Danger zone</h2>
-            <p className="mt-1 text-[13px] text-muted">
-              Deleting this batch removes only the grouping and shared costs. The animals and their own purchase prices stay untouched.
-            </p>
-            <form action={deleteBatchAction} className="mt-3">
-              <input type="hidden" name="id" value={batch.id} />
-              <ConfirmSubmit message={`Delete batch "${batch.name}" and all its shared costs? The animals themselves won't be affected.`}>
-                <Icon.trash className="h-4 w-4" /> Delete batch
-              </ConfirmSubmit>
-            </form>
-          </Card>
-        )}
       </div>
     </>
   );

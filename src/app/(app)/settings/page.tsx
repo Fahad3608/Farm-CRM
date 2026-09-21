@@ -5,6 +5,7 @@ import { can, ROLE_BLURB, ROLE_LABEL } from "@/lib/permissions";
 import { CURRENCIES, getSettings } from "@/lib/settings";
 import { Badge, Card, Empty, Field, PageHeader, Section } from "@/components/ui";
 import ActionForm, { SubmitButton } from "@/components/ActionForm";
+import RecordActions from "@/components/RecordActions";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import Disclosure from "@/components/Disclosure";
 import { deleteUserAction, saveFarmSettingsAction, saveUserAction } from "@/app/actions/settings";
@@ -13,8 +14,8 @@ import { createPayerAction, deletePayerAction, renamePayerAction } from "@/app/a
 import { backfillPurchaseTransactionsAction } from "@/app/actions/animals";
 import { backfillBatchCostTransactionsAction } from "@/app/actions/batches";
 import { fmtDate, money } from "@/lib/format";
-import { Icon } from "@/components/icons";
 import { CATEGORY_GROUPS, EXPENSE_CATEGORIES, categoryGroupOf } from "@/lib/domain";
+import { EXPENSE_GROUP_LABELS } from "@/lib/monthlyExpenses";
 import AutoSubmitSelect from "@/components/AutoSubmitSelect";
 
 export const dynamic = "force-dynamic";
@@ -110,12 +111,10 @@ export default async function SettingsPage() {
                       {c.name}
                       <Badge tone={c.type === "INCOME" ? "good" : "muted"}>{c.type === "INCOME" ? "Income" : "Expense"}</Badge>
                     </span>
-                    <form action={deleteCategoryAction}>
+                    <RecordActions label="Category actions"><form action={deleteCategoryAction}>
                       <input type="hidden" name="id" value={c.id} />
-                      <ConfirmSubmit message={`Remove "${c.name}" from your category suggestions? Existing transactions keep it.`} className="rounded-lg p-1.5 text-muted hover:text-bad">
-                        <Icon.trash className="h-4 w-4" />
-                      </ConfirmSubmit>
-                    </form>
+                      <ConfirmSubmit className="record-delete-action" message={`Remove "${c.name}" from your category suggestions? Existing transactions keep it.`}>Remove category</ConfirmSubmit>
+                    </form></RecordActions>
                   </li>
                 ))}
               </ul>
@@ -156,15 +155,13 @@ export default async function SettingsPage() {
                       <span className="tabular-nums text-[13.5px] text-muted">
                         {money(payerTotals.get(p.name) ?? 0, settings.currency)} invested
                       </span>
-                      <form action={deletePayerAction}>
+                      <RecordActions label="Payer actions"><form action={deletePayerAction}>
                         <input type="hidden" name="id" value={p.id} />
-                        <ConfirmSubmit
+                        <ConfirmSubmit className="record-delete-action"
                           message={`Remove "${p.name}" from the payer list? Entries already marked as theirs keep the name.`}
-                          className="rounded-lg p-1.5 text-muted hover:text-bad"
-                        >
-                          <Icon.trash className="h-4 w-4" />
-                        </ConfirmSubmit>
-                      </form>
+
+                        >Remove payer</ConfirmSubmit>
+                      </form></RecordActions>
                     </div>
                   </li>
                 ))}
@@ -181,8 +178,8 @@ export default async function SettingsPage() {
             className="lg:col-span-2"
           >
             <p className="border-b border-line px-4 py-3 text-[13px] text-muted">
-              Operational means running costs such as feed, wages, rent and veterinary care.
-              Capital &amp; Construction covers equipment and building work. Animal Purchases covers livestock.
+              Operational costs include Farm Rent, Caretaker Salary, feed and veterinary care.
+              Construction &amp; equipment includes Construction Costs and Material Cost (Equipment). Animal Purchases covers livestock.
               Use Other when the purpose needs review. Changes regroup existing entries in every month.
             </p>
             <ul className="divide-y divide-line">
@@ -191,7 +188,7 @@ export default async function SettingsPage() {
                   <span className="truncate text-[14px]">{name}</span>
                   <form action={setCategoryGroupAction}>
                     <input type="hidden" name="name" value={name} />
-                    <AutoSubmitSelect name="group" defaultValue={categoryGroupOf(name, assignedGroups)} options={CATEGORY_GROUPS} />
+                    <AutoSubmitSelect name="group" defaultValue={categoryGroupOf(name, assignedGroups)} options={CATEGORY_GROUPS} labels={EXPENSE_GROUP_LABELS} />
                   </form>
                 </li>
               ))}
@@ -253,8 +250,8 @@ export default async function SettingsPage() {
             ) : (
               <ul className="divide-y divide-line">
                 {users.map((u) => (
-                  <li key={u.id} className="px-4 py-3">
-                    <details>
+                  <li key={u.id} className="flex items-start gap-3 px-4 py-3">
+                    <details className="min-w-0 flex-1">
                       <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2">
                         <span className="font-medium">{u.name}</span>
                         <Badge tone={u.role === "OWNER" ? "brand" : u.role === "VET" ? "good" : "muted"}>{ROLE_LABEL[u.role]}</Badge>
@@ -290,16 +287,15 @@ export default async function SettingsPage() {
                           <div className="flex gap-2 sm:col-span-2"><SubmitButton>Save changes</SubmitButton></div>
                         </ActionForm>
 
-                        {u.id !== me.id && (
-                          <form action={deleteUserAction} className="mt-3 border-t border-line pt-3">
-                            <input type="hidden" name="id" value={u.id} />
-                            <ConfirmSubmit message={`Delete the account for ${u.name}? Their records stay on the farm.`}>
-                              <Icon.trash className="h-4 w-4" /> Delete account
-                            </ConfirmSubmit>
-                          </form>
-                        )}
+
                       </div>
                     </details>
+                        {u.id !== me.id && (
+                          <RecordActions label="Account actions"><form action={deleteUserAction}>
+                            <input type="hidden" name="id" value={u.id} />
+                            <ConfirmSubmit className="record-delete-action" message={`Delete the account for ${u.name}? Their records stay on the farm.`}>Delete account</ConfirmSubmit>
+                          </form></RecordActions>
+                        )}
                   </li>
                 ))}
               </ul>

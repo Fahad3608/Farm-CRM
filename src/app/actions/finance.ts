@@ -41,6 +41,7 @@ export async function saveTransactionAction(_prev: State, fd: FormData): Promise
   }
 
   revalidatePath("/finance");
+  revalidatePath("/equipment", "layout");
   revalidatePath("/dashboard");
   if (animalId) revalidatePath(`/animals/${animalId}`);
   return { ok: "Transaction saved." };
@@ -91,6 +92,7 @@ export async function saveBulkTransactionsAction(_prev: State, fd: FormData): Pr
   }
 
   revalidatePath("/finance");
+  revalidatePath("/equipment", "layout");
   revalidatePath("/dashboard");
   return { ok: "Saved." };
 }
@@ -103,6 +105,7 @@ export async function linkTransactionAnimalAction(fd: FormData) {
   const animalId = reqStr(fd, "animalId", "Animal");
   await prisma.transaction.update({ where: { id }, data: { animalId, notAnimalSpecific: false } });
   revalidatePath("/finance");
+  revalidatePath("/equipment", "layout");
   revalidatePath(`/animals/${animalId}`);
 }
 
@@ -113,6 +116,7 @@ export async function markNotAnimalSpecificAction(fd: FormData) {
   const id = reqStr(fd, "id");
   await prisma.transaction.update({ where: { id }, data: { notAnimalSpecific: true } });
   revalidatePath("/finance");
+  revalidatePath("/equipment", "layout");
 }
 
 /**
@@ -146,6 +150,7 @@ export async function deleteFilteredTransactionsAction(fd: FormData) {
   });
 
   revalidatePath("/finance");
+  revalidatePath("/equipment", "layout");
   revalidatePath("/dashboard");
 }
 
@@ -190,6 +195,7 @@ export async function editFilteredTransactionsAction(fd: FormData) {
   });
 
   revalidatePath("/finance");
+  revalidatePath("/equipment", "layout");
   revalidatePath("/dashboard");
 }
 
@@ -221,6 +227,7 @@ export async function bulkEditSelectedTransactionsAction(fd: FormData) {
   });
 
   revalidatePath("/finance");
+  revalidatePath("/equipment", "layout");
   revalidatePath("/dashboard");
 }
 
@@ -237,6 +244,7 @@ export async function deleteSelectedTransactionsAction(fd: FormData) {
   });
 
   revalidatePath("/finance");
+  revalidatePath("/equipment", "layout");
   revalidatePath("/dashboard");
 }
 
@@ -250,6 +258,7 @@ export async function deleteTransactionAction(fd: FormData) {
   }
   await prisma.transaction.delete({ where: { id } });
   revalidatePath("/finance");
+  revalidatePath("/equipment", "layout");
   revalidatePath("/dashboard");
 }
 
@@ -269,6 +278,7 @@ export async function categorizeExpenseAction(_prev: State, fd: FormData): Promi
     return { error: e instanceof Error ? e.message : "Could not change the category." };
   }
   revalidatePath("/finance");
+  revalidatePath("/equipment", "layout");
   revalidatePath("/dashboard");
   revalidatePath("/animals", "layout");
   revalidatePath("/settings");
