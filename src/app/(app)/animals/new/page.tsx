@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { getCurrency } from "@/lib/settings";
 import { nextTagIds } from "@/lib/tags";
+import { animalFieldSuggestions } from "@/lib/formSuggestions";
 import AnimalForm from "@/components/AnimalForm";
 import { PageHeader } from "@/components/ui";
 
@@ -13,11 +14,12 @@ export default async function NewAnimalPage() {
   const user = await requireUser();
   if (!can.manageAnimals(user.role)) redirect("/animals");
 
-  const [females, males, currency, tagSuggestions] = await Promise.all([
+  const [females, males, currency, tagSuggestions, fieldSuggestions] = await Promise.all([
     prisma.animal.findMany({ where: { sex: "FEMALE" }, select: { id: true, name: true, tagId: true }, orderBy: { tagId: "asc" } }),
     prisma.animal.findMany({ where: { sex: "MALE" }, select: { id: true, name: true, tagId: true }, orderBy: { tagId: "asc" } }),
     getCurrency(),
     nextTagIds(),
+    animalFieldSuggestions(),
   ]);
 
   const opt = (a: { id: string; name: string; tagId: string }) => ({ id: a.id, label: `${a.name} (${a.tagId})` });
@@ -31,6 +33,7 @@ export default async function NewAnimalPage() {
         showPrices={can.viewAnimalPrices(user.role)}
         currency={currency}
         nextTagBySpecies={tagSuggestions}
+        {...fieldSuggestions}
       />
     </>
   );

@@ -38,11 +38,13 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
 }
 
 export default function AnimalForm({
-  values = {}, mothers, fathers, showPrices, currency, nextTagBySpecies,
+  values = {}, mothers, fathers, showPrices, currency, nextTagBySpecies, breeds = [], colors = [], pens = [],
 }: {
   values?: AnimalFormValues; mothers: Option[]; fathers: Option[]; showPrices: boolean; currency: string;
   /** Suggested next Tag/ID per species (e.g. { GOAT: "G014" }) — only used when adding a new animal. */
   nextTagBySpecies?: Record<string, string>;
+  /** Values already used elsewhere, offered as suggestions so you don't retype them. */
+  breeds?: string[]; colors?: string[]; pens?: string[];
 }) {
   const [acquisition, setAcquisition] = useState(values.acquisition ?? "BORN_ON_FARM");
   const [status, setStatus] = useState(values.status ?? "ACTIVE");
@@ -83,9 +85,18 @@ export default function AnimalForm({
             <option value="MALE">Male</option>
           </select>
         </Field>
-        <Field label="Breed"><input name="breed" defaultValue={values.breed ?? ""} className="input" placeholder="Sahiwal, Beetal…" /></Field>
-        <Field label="Colour"><input name="color" defaultValue={values.color ?? ""} className="input" placeholder="Black & white" /></Field>
-        <Field label="Pen / location"><input name="penOrLocation" defaultValue={values.penOrLocation ?? ""} className="input" placeholder="Shed A" /></Field>
+        <Field label="Breed">
+          <input name="breed" defaultValue={values.breed ?? ""} className="input" placeholder="Sahiwal, Beetal…" list="breed-opts" />
+          <datalist id="breed-opts">{breeds.map((b) => <option key={b} value={b} />)}</datalist>
+        </Field>
+        <Field label="Colour">
+          <input name="color" defaultValue={values.color ?? ""} className="input" placeholder="Black & white" list="color-opts" />
+          <datalist id="color-opts">{colors.map((c) => <option key={c} value={c} />)}</datalist>
+        </Field>
+        <Field label="Pen / location">
+          <input name="penOrLocation" defaultValue={values.penOrLocation ?? ""} className="input" placeholder="Shed A" list="pen-opts" />
+          <datalist id="pen-opts">{pens.map((p) => <option key={p} value={p} />)}</datalist>
+        </Field>
       </Group>
 
       <Group title="Age & arrival">
