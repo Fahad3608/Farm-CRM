@@ -20,7 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     isVet && { href: "/vet", label: "My Queue", icon: Icon.dashboard },
     { href: "/animals", label: "Animals", icon: Icon.animals },
     { href: "/health", label: "Health", icon: Icon.syringe },
-    { href: "/breeding", label: "Breeding", icon: Icon.breeding },
+    can.viewBreeding(user.role) && { href: "/breeding", label: "Breeding", icon: Icon.breeding },
     !isVet && { href: "/feed", label: "Feed", icon: Icon.feed },
     can.viewFinance(user.role) && { href: "/finance", label: "Finance", icon: Icon.finance },
     can.viewFinance(user.role) && { href: "/batches", label: "Batches", icon: Icon.batch },

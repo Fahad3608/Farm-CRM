@@ -52,7 +52,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
         <div className="mb-4">
           <Disclosure label="Add health record">
             <Card className="p-4">
-              <HealthRecordForm animals={animalOpts} vaccineSuggestions={allSuggestions} />
+              <HealthRecordForm animals={animalOpts} vaccineSuggestions={allSuggestions} showCosts={showMoney} />
             </Card>
           </Disclosure>
         </div>

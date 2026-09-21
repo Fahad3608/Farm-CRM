@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function BreedingPage() {
   const user = await requireUser();
+  if (!can.viewBreeding(user.role)) redirect("/vet");
   const showMoney = can.viewFinance(user.role);
 
   const [animals, records, born12] = await Promise.all([

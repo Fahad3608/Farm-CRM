@@ -6,8 +6,14 @@
 WITH owner AS (
   SELECT id FROM "User" WHERE role = 'OWNER' LIMIT 1
 )
-INSERT INTO "Transaction" (id, date, type, category, amount, description, vendor, reference, "notAnimalSpecific", "createdById")
-SELECT * FROM (
+INSERT INTO "Transaction" (id, date, type, category, amount, description, vendor, reference, "notAnimalSpecific", "createdById", "updatedAt")
+-- A VALUES list types 'EXPENSE' as text, and Postgres will not coerce text to
+-- an enum on insert, so the cast has to be spelled out here. updatedAt is
+-- Prisma's @updatedAt, which it fills in from the client and never defaults in
+-- the database, so raw SQL has to set it.
+SELECT v.id, v.date, v.type::"TxnType", v.category, v.amount, v.description,
+       v.vendor, v.reference, v."notAnimalSpecific", owner.id, CURRENT_TIMESTAMP
+FROM (
   VALUES
     -- June 2026
     (gen_random_uuid()::text, '2026-06-10 12:00:00'::timestamp, 'EXPENSE', 'Farm Rent',          17000,  'June - Farm rent',                        NULL,              'Paid by Fahad',  true),

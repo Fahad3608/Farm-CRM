@@ -17,7 +17,7 @@ npm run dev          # Start dev server
 npm run build        # prisma generate + migrate deploy + next build
 npm run lint         # next lint
 npm run db:seed      # Seed demo data (set SEED_DEMO_DATA=true)
-npm run db:migrate   # prisma migrate deploy
+npm run db:migrate   # prisma migrate deploy (see Migrations below)
 npm run db:studio    # Prisma Studio GUI
 ```
 
@@ -59,7 +59,9 @@ Form field parsing uses helpers from `src/lib/form.ts`: `str`, `reqStr`, `dec`, 
 
 ### Permissions
 
-Role-based access via `src/lib/permissions.ts`. Four roles: `OWNER`, `MANAGER`, `VET`, `WORKER`. Check with `can.viewFinance(user.role)`, `can.manageAnimals(user.role)`, etc. VET is walled off from finances.
+Role-based access via `src/lib/permissions.ts`. Four roles: `OWNER`, `MANAGER`, `VET`, `WORKER`. Check with `can.viewFinance(user.role)`, `can.manageAnimals(user.role)`, etc.
+
+VET is the narrowest role and is meant to stay that way: the animal list and health records, nothing else. No money, no weights or milk yields, no feed, no breeding, no acquisition history. On an animal, `can.viewAnimalHistory` forces a vet to the Health tab whatever `?tab=` says, and the cost fields on `HealthRecordForm` are hidden from them — `saveHealthRecordAction` ignores those fields for a vet rather than trusting the form, so their save cannot wipe a cost the owner entered.
 
 ### Finance auto-linking
 
@@ -90,6 +92,15 @@ Built-in categories in `src/lib/domain.ts` (`EXPENSE_CATEGORIES`, `INCOME_CATEGO
 
 Migrations are created manually as SQL files (no `prisma migrate dev` — use `prisma migrate deploy` to apply). Follow existing naming convention: `YYYYMMDDHHMMSS_description/migration.sql`.
 
+Deploys go through `scripts/migrate-deploy.mjs` instead of calling `prisma migrate deploy` directly. A migration that errors stays in the history unfinished and Prisma then rejects every later deploy with P3009; since the build is the only thing that reaches the production database, a broken migration would otherwise lock the app out of deploying forever. The script marks such a migration rolled back and retries once. A migration that fails on its first attempt still fails the build.
+
+Two things to get right in raw SQL that Prisma normally handles:
+
+- `updatedAt` columns are `@updatedAt`, which Prisma fills from the client. There is no database default, so every insert must set it (`CURRENT_TIMESTAMP`).
+- Enum columns need an explicit cast (`'EXPENSE'::"TxnType"`); Postgres will not coerce text to an enum on insert.
+
+CI runs migrations against an empty database, so a data migration that reads existing rows (looking up the OWNER user, for instance) inserts nothing there and passes regardless. Green CI is not evidence that a data migration works.
+
 ### Key models
 
 - `Animal` — core entity, linked to health, feed, milk, weight, breeding, photos, transactions, and optionally a `PurchaseBatch`
@@ -115,3 +126,13 @@ GitHub Actions workflow (`.github/workflows/ci.yml`) runs `npm run build` agains
 - Dates formatted with `fmtDate()` from the same file
 - Redirect calls in server actions must be outside try/catch blocks (Next.js throws on redirect)
 - Animal deletion detaches transactions (preserves ledger) before cascading the delete
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

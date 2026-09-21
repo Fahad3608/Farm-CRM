@@ -44,9 +44,11 @@ export default async function AnimalPage({
 }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
   const user = await requireUser();
   const { id } = await params;
-  const tab = (await searchParams).tab ?? "overview";
   const settings = await getSettings();
   const showMoney = can.viewFinance(user.role);
+  // A vet gets health and nothing else, so the tab is not theirs to choose.
+  const showHistory = can.viewAnimalHistory(user.role);
+  const tab = showHistory ? (await searchParams).tab ?? "overview" : "health";
 
   const animal = await prisma.animal.findUnique({
     where: { id },
@@ -97,15 +99,17 @@ export default async function AnimalPage({
   const dams = allAnimals.filter((a) => a.sex === "FEMALE").map(opt);
   const sires = allAnimals.filter((a) => a.sex === "MALE").map(opt);
 
-  const tabs = [
-    { key: "overview", label: "Overview" },
-    { key: "health", label: "Health", count: animal.healthRecords.length },
-    { key: "feed", label: "Feed", count: animal.feedLogs.length },
-    ...(animal.sex === "FEMALE" ? [{ key: "breeding", label: "Breeding", count: animal.breedingAsDam.length }] : []),
-    { key: "growth", label: "Growth & milk", count: animal.weights.length + animal.milkRecords.length },
-    { key: "photos", label: "Photos", count: animal.photos.length },
-    ...(showMoney ? [{ key: "costs", label: "Costs" }] : []),
-  ];
+  const tabs = showHistory
+    ? [
+        { key: "overview", label: "Overview" },
+        { key: "health", label: "Health", count: animal.healthRecords.length },
+        { key: "feed", label: "Feed", count: animal.feedLogs.length },
+        ...(can.viewBreeding(user.role) && animal.sex === "FEMALE" ? [{ key: "breeding", label: "Breeding", count: animal.breedingAsDam.length }] : []),
+        { key: "growth", label: "Growth & milk", count: animal.weights.length + animal.milkRecords.length },
+        { key: "photos", label: "Photos", count: animal.photos.length },
+        ...(showMoney ? [{ key: "costs", label: "Costs" }] : []),
+      ]
+    : [{ key: "health", label: "Health", count: animal.healthRecords.length }];
 
   return (
     <>
@@ -264,7 +268,7 @@ export default async function AnimalPage({
           {can.writeHealth(user.role) && (
             <Disclosure label="Add health record">
               <Card className="p-4">
-                <HealthRecordForm animals={[]} animalId={animal.id} vaccineSuggestions={VACCINE_SUGGESTIONS[animal.species] ?? []} />
+                <HealthRecordForm animals={[]} animalId={animal.id} vaccineSuggestions={VACCINE_SUGGESTIONS[animal.species] ?? []} showCosts={showMoney} />
               </Card>
             </Disclosure>
           )}
