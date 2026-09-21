@@ -142,6 +142,22 @@ export async function deleteFilteredTransactionsAction(fd: FormData) {
   revalidatePath("/dashboard");
 }
 
+/** Deletes whichever transactions were checked off in the ledger, regardless of filter. */
+export async function deleteSelectedTransactionsAction(fd: FormData) {
+  const user = await requireUser();
+  if (!can.editFinance(user.role)) throw new Error("Not permitted.");
+
+  const ids = fd.getAll("ids").map(String).filter(Boolean);
+  if (ids.length === 0) return;
+
+  await prisma.transaction.deleteMany({
+    where: { id: { in: ids }, healthRecordId: null, feedLogId: null },
+  });
+
+  revalidatePath("/finance");
+  revalidatePath("/dashboard");
+}
+
 export async function deleteTransactionAction(fd: FormData) {
   const user = await requireUser();
   if (!can.editFinance(user.role)) throw new Error("Not permitted.");
