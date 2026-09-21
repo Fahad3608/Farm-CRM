@@ -8,16 +8,19 @@ Livestock farm management system. Tracks animals, health records, breeding, feed
 - **Prisma v6** with PostgreSQL
 - **Tailwind CSS v3** with custom design tokens (see `tailwind.config.ts`)
 - **Auth**: JWT sessions via `jose`, passwords via `bcryptjs` — no external auth provider
+- **ESLint 9** flat config (`eslint.config.mjs`) on `eslint-config-next/core-web-vitals`
 - No external UI library — all components are hand-rolled in `src/components/`
+- Deployed on Vercel, which runs `npm run build` — that build is the only thing that touches the production database
 
 ## Commands
 
 ```bash
 npm run dev          # Start dev server
 npm run build        # prisma generate + migrate deploy + next build
-npm run lint         # next lint
+npm run lint         # eslint . (next lint was removed in Next 16)
 npm run db:seed      # Seed demo data (set SEED_DEMO_DATA=true)
-npm run db:migrate   # prisma migrate deploy (see Migrations below)
+npm run db:migrate   # Apply migrations (see Migrations below)
+npm run db:push      # Push the schema without a migration — local scratch only
 npm run db:studio    # Prisma Studio GUI
 ```
 
@@ -38,12 +41,18 @@ src/
       vet/           # Vet-specific queue
     actions/         # Server actions (one file per domain)
     api/photos/[id]/ # Photo serving endpoint
+    login/           # Sign-in (outside the authenticated layout)
+    setup/           # First-run owner account creation
   components/        # Shared UI components
-  lib/               # Utilities (auth, db, permissions, format, form helpers)
+  lib/               # auth, db, permissions, domain, format, form, settings,
+                     # tags (next Tag/ID per species), fx (currency rates),
+                     # firstRun, formSuggestions
 prisma/
   schema.prisma      # Single schema file
   migrations/        # SQL migrations (created manually, not via prisma migrate dev)
   seed.ts            # Demo data seeder
+scripts/
+  migrate-deploy.mjs # Migration deploy with failed-migration recovery
 ```
 
 ## Key patterns
@@ -109,6 +118,10 @@ CI runs migrations against an empty database, so a data migration that reads exi
 - `HealthRecord`, `FeedLog`, `MilkRecord`, `WeightRecord` — daily tracking
 - `BreedingRecord` — dam/sire tracking with status workflow
 - `Photo` — binary storage with thumbnail, linked to animal
+- `User` — the four roles; `FeedType` — feed catalogue behind feed logs
+- `Category` — user-added expense/income categories on top of the built-ins
+- `Setting` — the key-value store behind `getSettings()`
+- `AuditLog` — declared in the schema but nothing reads or writes it yet
 
 ## Environment
 
@@ -118,7 +131,7 @@ Required env vars (see `.env.example`):
 
 ## CI
 
-GitHub Actions workflow (`.github/workflows/ci.yml`) runs `npm run build` against a fresh PostgreSQL service container. This validates TypeScript, migrations, and the full build.
+GitHub Actions workflow (`.github/workflows/ci.yml`) runs typecheck, lint and `npm run build` against a fresh PostgreSQL service container. This validates TypeScript, migrations, and the full build.
 
 ## Conventions
 
