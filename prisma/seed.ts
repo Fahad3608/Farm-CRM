@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { PrismaClient, type Species } from "@prisma/client";
 import bcrypt from "bcryptjs";
 

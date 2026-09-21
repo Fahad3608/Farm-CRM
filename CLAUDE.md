@@ -15,7 +15,7 @@ Livestock farm management system. Tracks animals, health records, breeding, feed
 ```bash
 npm run dev          # Start dev server
 npm run build        # prisma generate + migrate deploy + next build
-npm run lint         # next lint
+npm run lint         # eslint . (next lint was removed in Next 16)
 npm run db:seed      # Seed demo data (set SEED_DEMO_DATA=true)
 npm run db:migrate   # prisma migrate deploy (see Migrations below)
 npm run db:studio    # Prisma Studio GUI
@@ -118,7 +118,7 @@ Required env vars (see `.env.example`):
 
 ## CI
 
-GitHub Actions workflow (`.github/workflows/ci.yml`) runs `npm run build` against a fresh PostgreSQL service container. This validates TypeScript, migrations, and the full build.
+GitHub Actions workflow (`.github/workflows/ci.yml`) runs typecheck, lint and `npm run build` against a fresh PostgreSQL service container. This validates TypeScript, migrations, and the full build.
 
 ## Conventions
 
