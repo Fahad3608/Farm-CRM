@@ -112,6 +112,35 @@ export async function markNotAnimalSpecificAction(fd: FormData) {
   revalidatePath("/finance");
 }
 
+/**
+ * Deletes every transaction matching a Finance-page filter (date range, type,
+ * category) in one go — the undo button for a bulk paste that went in under
+ * the wrong category. Auto-linked rows (from a health or feed record) are
+ * left alone, same as the single delete.
+ */
+export async function deleteFilteredTransactionsAction(fd: FormData) {
+  const user = await requireUser();
+  if (!can.editFinance(user.role)) throw new Error("Not permitted.");
+
+  const from = reqStr(fd, "from", "From");
+  const to = reqStr(fd, "to", "To");
+  const type = str(fd, "type");
+  const category = reqStr(fd, "category", "Category");
+
+  await prisma.transaction.deleteMany({
+    where: {
+      date: { gte: new Date(`${from}T00:00:00`), lte: new Date(`${to}T23:59:59`) },
+      category,
+      ...(type && type !== "ALL" ? { type: type as TxnType } : {}),
+      healthRecordId: null,
+      feedLogId: null,
+    },
+  });
+
+  revalidatePath("/finance");
+  revalidatePath("/dashboard");
+}
+
 export async function deleteTransactionAction(fd: FormData) {
   const user = await requireUser();
   if (!can.editFinance(user.role)) throw new Error("Not permitted.");
