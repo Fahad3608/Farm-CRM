@@ -114,12 +114,10 @@ export async function markNotAnimalSpecificAction(fd: FormData) {
 
 /**
  * Deletes every transaction matching the Finance page's current filter
- * (date range, type, category — "ALL" meaning that filter isn't applied) in
- * one go, e.g. to undo a bulk paste that went in under the wrong category.
- * Category matches as a substring, so filtering to "Wall reconstruction"
- * catches "Wall reconstruction - Material cost" and "- Labour cost" alike.
- * Auto-linked rows (from a health or feed record) are left alone, same as
- * the single delete.
+ * (date range, type, one or more categories) in one go, e.g. to undo a bulk
+ * paste that went in under the wrong category. No categories checked means
+ * the filter isn't applied. Auto-linked rows (from a health or feed record)
+ * are left alone, same as the single delete.
  */
 export async function deleteFilteredTransactionsAction(fd: FormData) {
   const user = await requireUser();
@@ -128,12 +126,12 @@ export async function deleteFilteredTransactionsAction(fd: FormData) {
   const from = reqStr(fd, "from", "From");
   const to = reqStr(fd, "to", "To");
   const type = str(fd, "type");
-  const category = str(fd, "category");
+  const categories = fd.getAll("category").map(String).filter(Boolean);
 
   await prisma.transaction.deleteMany({
     where: {
       date: { gte: new Date(`${from}T00:00:00`), lte: new Date(`${to}T23:59:59`) },
-      ...(category && category !== "ALL" ? { category: { contains: category, mode: "insensitive" } } : {}),
+      ...(categories.length > 0 ? { category: { in: categories } } : {}),
       ...(type && type !== "ALL" ? { type: type as TxnType } : {}),
       healthRecordId: null,
       feedLogId: null,
@@ -146,10 +144,10 @@ export async function deleteFilteredTransactionsAction(fd: FormData) {
 
 /**
  * Applies a new date and/or category to every transaction matching the
- * Finance page's current filter — the same "Wall reconstruction" substring
- * match as the filtered delete, so a whole family of categories (Material
- * cost, Labour cost...) can be corrected together without selecting each
- * row by hand. Auto-linked rows are left alone.
+ * Finance page's current filter — the same multi-category checklist as the
+ * filtered delete, so a whole family of categories (Material cost, Labour
+ * cost...) can be corrected together without selecting each row by hand.
+ * Auto-linked rows are left alone.
  */
 export async function editFilteredTransactionsAction(fd: FormData) {
   const user = await requireUser();
@@ -158,7 +156,7 @@ export async function editFilteredTransactionsAction(fd: FormData) {
   const from = reqStr(fd, "from", "From");
   const to = reqStr(fd, "to", "To");
   const type = str(fd, "type");
-  const category = str(fd, "category");
+  const categories = fd.getAll("category").map(String).filter(Boolean);
 
   const setDate = str(fd, "setDate");
   const setCategory = str(fd, "setCategory");
@@ -170,7 +168,7 @@ export async function editFilteredTransactionsAction(fd: FormData) {
   await prisma.transaction.updateMany({
     where: {
       date: { gte: new Date(`${from}T00:00:00`), lte: new Date(`${to}T23:59:59`) },
-      ...(category && category !== "ALL" ? { category: { contains: category, mode: "insensitive" } } : {}),
+      ...(categories.length > 0 ? { category: { in: categories } } : {}),
       ...(type && type !== "ALL" ? { type: type as TxnType } : {}),
       healthRecordId: null,
       feedLogId: null,

@@ -16,6 +16,34 @@ const ACQ_VALUES = ["BORN_ON_FARM", "PURCHASED", "GIFTED", "INHERITED", "OTHER"]
 
 type State = { error?: string; ok?: string } | undefined;
 
+/**
+ * Keeps the "Animal Purchase" ledger entry in step with the animal record —
+ * on first save, or years later if a price is added on an edit. Matched by
+ * animalId + category, so re-saving updates the same row instead of
+ * duplicating it.
+ */
+async function syncPurchaseTransaction(input: {
+  animalId: string; name: string; tagId: string;
+  acquisition: AcquisitionType; price: number | null | undefined;
+  date: Date; vendor: string | null; userId: string;
+}) {
+  if (input.acquisition !== "PURCHASED" || !input.price || input.price <= 0) return;
+  const existing = await prisma.transaction.findFirst({
+    where: { animalId: input.animalId, category: "Animal Purchase" },
+  });
+  const data = {
+    date: input.date,
+    type: "EXPENSE" as const,
+    category: "Animal Purchase",
+    amount: input.price,
+    description: `Purchase of ${input.name} (${input.tagId})`,
+    vendor: input.vendor,
+    animalId: input.animalId,
+  };
+  if (existing) await prisma.transaction.update({ where: { id: existing.id }, data });
+  else await prisma.transaction.create({ data: { ...data, createdById: input.userId } });
+}
+
 function readAnimal(fd: FormData) {
   return {
     tagId: reqStr(fd, "tagId", "Tag / ID"),
@@ -57,26 +85,24 @@ export async function saveAnimalAction(_prev: State, fd: FormData): Promise<Stat
       ? { purchasePrice: dec(fd, "purchasePrice"), salePrice: dec(fd, "salePrice") }
       : {};
 
+    const price = "purchasePrice" in money ? money.purchasePrice : undefined;
+
     if (id) {
       await prisma.animal.update({ where: { id }, data: { ...data, ...money } });
+      if (price !== undefined) {
+        await syncPurchaseTransaction({
+          animalId: id, name: data.name, tagId: data.tagId, acquisition: data.acquisition,
+          price, date: data.dateJoined, vendor: data.sourceName, userId: user.id,
+        });
+      }
     } else {
       const created = await prisma.animal.create({ data: { ...data, ...money } });
       newId = created.id;
 
-      // A purchase is money out — record it in the ledger automatically.
-      const price = "purchasePrice" in money ? money.purchasePrice : null;
-      if (data.acquisition === "PURCHASED" && price) {
-        await prisma.transaction.create({
-          data: {
-            date: data.dateJoined,
-            type: "EXPENSE",
-            category: "Animal Purchase",
-            amount: price,
-            description: `Purchase of ${data.name} (${data.tagId})`,
-            vendor: data.sourceName,
-            animalId: created.id,
-            createdById: user.id,
-          },
+      if (price !== undefined) {
+        await syncPurchaseTransaction({
+          animalId: created.id, name: data.name, tagId: data.tagId, acquisition: data.acquisition,
+          price, date: data.dateJoined, vendor: data.sourceName, userId: user.id,
         });
       }
     }
@@ -89,6 +115,51 @@ export async function saveAnimalAction(_prev: State, fd: FormData): Promise<Stat
   revalidatePath("/animals");
   revalidatePath("/dashboard");
   redirect(`/animals/${newId}`);
+}
+
+/**
+ * One-time fix for animals bought before this app started recording
+ * purchases in Finance automatically: adds the missing "Animal Purchase"
+ * entry for every purchased animal that doesn't already have one, so the
+ * ledger and cost-per-animal totals reflect every animal on the farm.
+ */
+export async function backfillPurchaseTransactionsAction(_prev: State, _fd: FormData): Promise<State> {
+  const user = await requireUser();
+  if (!can.editFinance(user.role)) return { error: "Not permitted." };
+
+  const candidates = await prisma.animal.findMany({
+    where: { acquisition: "PURCHASED", purchasePrice: { not: null } },
+    select: { id: true, name: true, tagId: true, purchasePrice: true, dateJoined: true, sourceName: true },
+  });
+
+  let added = 0;
+  for (const a of candidates) {
+    const existing = await prisma.transaction.findFirst({
+      where: { animalId: a.id, category: "Animal Purchase" },
+    });
+    if (existing || !a.purchasePrice) continue;
+    await prisma.transaction.create({
+      data: {
+        date: a.dateJoined,
+        type: "EXPENSE",
+        category: "Animal Purchase",
+        amount: a.purchasePrice,
+        description: `Purchase of ${a.name} (${a.tagId})`,
+        vendor: a.sourceName,
+        animalId: a.id,
+        createdById: user.id,
+      },
+    });
+    added++;
+  }
+
+  revalidatePath("/finance");
+  revalidatePath("/dashboard");
+  return {
+    ok: added > 0
+      ? `Added ${added} missing purchase${added === 1 ? "" : "s"} to Finance.`
+      : "Nothing to fix — every purchased animal already has a Finance entry.",
+  };
 }
 
 export async function recordSaleAction(_prev: State, fd: FormData): Promise<State> {

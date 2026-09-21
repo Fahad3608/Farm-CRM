@@ -17,7 +17,16 @@ import { historicalRates, isoDate } from "@/lib/fx";
 
 export const dynamic = "force-dynamic";
 
-type Search = { from?: string; to?: string; type?: string; category?: string; page?: string; fx?: string };
+type Search = { from?: string; to?: string; type?: string; category?: string | string[]; page?: string; fx?: string };
+
+function toParams(sp: Search) {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(sp)) {
+    if (Array.isArray(v)) v.forEach((vv) => vv && p.append(k, vv));
+    else if (v) p.append(k, v);
+  }
+  return p;
+}
 
 const PER_PAGE = 50;
 
@@ -35,13 +44,15 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
   const from = sp.from ? new Date(`${sp.from}T00:00:00`) : new Date(now.getFullYear(), now.getMonth() - 5, 1);
   const to = sp.to ? new Date(`${sp.to}T23:59:59`) : endOfDay(now);
 
+  // Category filter is a checklist rather than one text field, so picking
+  // several related categories (e.g. both "Wall reconstruction" sub-costs)
+  // shows them together without needing to type a shared prefix.
+  const selectedCategories = ([] as string[]).concat(sp.category ?? []).filter(Boolean);
+
   const where = {
     date: { gte: from, lte: to },
     ...(sp.type && sp.type !== "ALL" ? { type: sp.type as never } : {}),
-    // "Contains" rather than exact match, so filtering to "Wall reconstruction"
-    // catches every sub-category sharing that prefix (Material cost, Labour
-    // cost...) in one go, instead of picking exactly one category string.
-    ...(sp.category && sp.category !== "ALL" ? { category: { contains: sp.category, mode: "insensitive" as const } } : {}),
+    ...(selectedCategories.length > 0 ? { category: { in: selectedCategories } } : {}),
   };
 
   const page = Math.max(1, Number(sp.page ?? 1) || 1);
@@ -122,13 +133,14 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
     buckets.length > MAX_BARS ? `Most recent ${MAX_BARS} months of the selected range` : "By month";
 
   const dateVal = (d: Date) => d.toISOString().slice(0, 10);
+  const categoryLabel = selectedCategories.length > 0 ? selectedCategories.join(", ") : "All categories";
 
   const lastPage = Math.max(1, Math.ceil(txnCount / PER_PAGE));
   const pageInfo = txnCount
     ? `Showing ${(page - 1) * PER_PAGE + 1}–${Math.min(page * PER_PAGE, txnCount)} of ${txnCount}`
     : "No entries";
   const pageHref = (n: number) => {
-    const q = new URLSearchParams(Object.entries(sp).filter(([, v]) => v) as [string, string][]);
+    const q = toParams(sp);
     q.set("page", String(n));
     return `/finance?${q.toString()}`;
   };
@@ -139,7 +151,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
   const showUsd = canShowUsd && sp.fx === "usd";
   const usdRates = showUsd ? await historicalRates(settings.currency, "USD", txns.map((t) => t.date)) : null;
   const fxToggleHref = () => {
-    const q = new URLSearchParams(Object.entries(sp).filter(([, v]) => v) as [string, string][]);
+    const q = toParams(sp);
     if (showUsd) q.delete("fx"); else q.set("fx", "usd");
     return `/finance?${q.toString()}`;
   };
@@ -289,12 +301,28 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
             <option value="ALL">All</option><option value="INCOME">Income</option><option value="EXPENSE">Expense</option>
           </select>
         </Field>
-        <Field label="Category" hint="Matches any category containing this text">
-          <input
-            name="category" defaultValue={sp.category && sp.category !== "ALL" ? sp.category : ""}
-            className="input w-auto" placeholder="All categories" list="filter-cat-opts"
-          />
-          <datalist id="filter-cat-opts">{allCategories.map((c) => <option key={c} value={c} />)}</datalist>
+        <Field label="Category" hint="Pick one or more — leave none checked for all">
+          <details className="relative">
+            <summary className="input w-auto cursor-pointer list-none select-none">
+              {selectedCategories.length === 0
+                ? "All categories"
+                : selectedCategories.length === 1
+                ? selectedCategories[0]
+                : `${selectedCategories.length} categories selected`}
+            </summary>
+            <div className="absolute z-10 mt-1 max-h-64 w-64 overflow-y-auto rounded-xl border border-line bg-surface p-2 shadow-lg">
+              {allCategories.map((c) => (
+                <label key={c} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13.5px] hover:bg-surface2">
+                  <input
+                    type="checkbox" name="category" value={c}
+                    defaultChecked={selectedCategories.includes(c)}
+                    className="h-4 w-4 shrink-0 accent-[rgb(var(--brand))]"
+                  />
+                  <span className="truncate">{c}</span>
+                </label>
+              ))}
+            </div>
+          </details>
         </Field>
         <button className="btn-ghost">Apply</button>
       </form>
@@ -351,9 +379,9 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
                   <input type="hidden" name="from" value={dateVal(from)} />
                   <input type="hidden" name="to" value={dateVal(to)} />
                   <input type="hidden" name="type" value={sp.type ?? "ALL"} />
-                  <input type="hidden" name="category" value={sp.category ?? "ALL"} />
+                  {selectedCategories.map((c) => <input key={c} type="hidden" name="category" value={c} />)}
                   <ConfirmSubmit
-                    message={`Delete ${deletableCount} transaction${deletableCount === 1 ? "" : "s"} (${fmtDate(from)} — ${fmtDate(to)}, category "${sp.category && sp.category !== "ALL" ? sp.category : "All categories"}")?${txnCount > deletableCount ? ` ${txnCount - deletableCount} auto-linked health/feed ${txnCount - deletableCount === 1 ? "entry" : "entries"} will be kept.` : ""} This cannot be undone.`}
+                    message={`Delete ${deletableCount} transaction${deletableCount === 1 ? "" : "s"} (${fmtDate(from)} — ${fmtDate(to)}, category "${categoryLabel}")?${txnCount > deletableCount ? ` ${txnCount - deletableCount} auto-linked health/feed ${txnCount - deletableCount === 1 ? "entry" : "entries"} will be kept.` : ""} This cannot be undone.`}
                     className="btn-danger btn-sm"
                   >
                     Delete all {deletableCount} shown
@@ -366,13 +394,13 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
           {deletableCount > 0 && (
             <details className="border-b border-line px-4 py-3">
               <summary className="cursor-pointer list-none text-[13px] font-semibold text-muted">
-                Edit all {deletableCount} shown ({sp.category && sp.category !== "ALL" ? `category contains "${sp.category}"` : "all categories"})…
+                Edit all {deletableCount} shown (category: {categoryLabel})…
               </summary>
               <form action={editFilteredTransactionsAction} className="mt-3 flex flex-wrap items-end gap-2">
                 <input type="hidden" name="from" value={dateVal(from)} />
                 <input type="hidden" name="to" value={dateVal(to)} />
                 <input type="hidden" name="type" value={sp.type ?? "ALL"} />
-                <input type="hidden" name="category" value={sp.category ?? "ALL"} />
+                {selectedCategories.map((c) => <input key={c} type="hidden" name="category" value={c} />)}
                 <Field label="New date"><input type="date" name="setDate" className="input w-auto" /></Field>
                 <Field label="New category" hint="Leave blank to keep each row's own">
                   <input name="setCategory" list="edit-all-cat-opts" className="input w-auto" placeholder="Leave blank to keep" />

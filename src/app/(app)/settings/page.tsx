@@ -9,6 +9,7 @@ import ConfirmSubmit from "@/components/ConfirmSubmit";
 import Disclosure from "@/components/Disclosure";
 import { deleteUserAction, saveFarmSettingsAction, saveUserAction } from "@/app/actions/settings";
 import { createCategoryAction, deleteCategoryAction } from "@/app/actions/categories";
+import { backfillPurchaseTransactionsAction } from "@/app/actions/animals";
 import { fmtDate } from "@/lib/format";
 import { Icon } from "@/components/icons";
 
@@ -90,6 +91,20 @@ export default async function SettingsPage() {
                 ))}
               </ul>
             )}
+          </Section>
+        )}
+
+        {can.editFinance(me.role) && (
+          <Section
+            title="Animal purchases in Finance"
+            subtitle="Every purchased animal should show up as an expense here — use this if any bought before are missing"
+            className="lg:col-span-2"
+          >
+            <div className="p-4">
+              <ActionForm action={backfillPurchaseTransactionsAction}>
+                <SubmitButton className="btn-ghost">Sync animal purchases into Finance</SubmitButton>
+              </ActionForm>
+            </div>
           </Section>
         )}
 
