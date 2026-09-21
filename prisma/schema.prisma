@@ -411,6 +411,11 @@ model Category {
   id        String   @id @default(cuid())
   name      String
   type      TxnType
+  // Which higher-level bucket this expense category rolls up into (e.g.
+  // "Operational", "Capital & Construction") — set from Settings, so the
+  // Finance page can total and drill into related categories together.
+  // Null falls back to a built-in default, then "Other".
+  group     String?
   createdAt DateTime @default(now())
 
   @@unique([name, type])

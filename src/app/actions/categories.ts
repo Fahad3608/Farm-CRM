@@ -36,3 +36,24 @@ export async function deleteCategoryAction(fd: FormData) {
   revalidatePath("/finance");
   revalidatePath("/settings");
 }
+
+/**
+ * Assigns an expense category to a group (Operational, Capital &
+ * Construction, ...) so it rolls up correctly on the Finance page. The
+ * category may be a built-in one or one only ever typed freeform on a
+ * transaction — either way this is the first time it becomes its own row,
+ * so it's an upsert rather than an update.
+ */
+export async function setCategoryGroupAction(fd: FormData) {
+  const user = await requireUser();
+  if (!can.editFinance(user.role)) throw new Error("Not permitted.");
+  const name = reqStr(fd, "name");
+  const group = reqStr(fd, "group");
+  await prisma.category.upsert({
+    where: { name_type: { name, type: "EXPENSE" } },
+    create: { name, type: "EXPENSE", group },
+    update: { group },
+  });
+  revalidatePath("/finance");
+  revalidatePath("/settings");
+}

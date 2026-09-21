@@ -8,10 +8,12 @@ import ActionForm, { SubmitButton } from "@/components/ActionForm";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import Disclosure from "@/components/Disclosure";
 import { deleteUserAction, saveFarmSettingsAction, saveUserAction } from "@/app/actions/settings";
-import { createCategoryAction, deleteCategoryAction } from "@/app/actions/categories";
+import { createCategoryAction, deleteCategoryAction, setCategoryGroupAction } from "@/app/actions/categories";
 import { backfillPurchaseTransactionsAction } from "@/app/actions/animals";
 import { fmtDate } from "@/lib/format";
 import { Icon } from "@/components/icons";
+import { CATEGORY_GROUPS, EXPENSE_CATEGORIES, categoryGroupOf } from "@/lib/domain";
+import AutoSubmitSelect from "@/components/AutoSubmitSelect";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +28,19 @@ export default async function SettingsPage() {
   const categories = can.editFinance(me.role)
     ? await prisma.category.findMany({ orderBy: [{ type: "asc" }, { name: "asc" }] })
     : [];
+
+  // Every expense category anyone could see on Finance — built-in, custom, or
+  // just typed once on a transaction — so grouping covers all of them, not
+  // only the ones deliberately added as suggestions.
+  const usedExpenseCategories = can.editFinance(me.role)
+    ? (await prisma.transaction.findMany({ where: { type: "EXPENSE" }, select: { category: true }, distinct: ["category"] })).map((t) => t.category)
+    : [];
+  const assignedGroups = new Map(categories.filter((c) => c.type === "EXPENSE" && c.group).map((c) => [c.name, c.group!]));
+  const allExpenseCategories = [...new Set([
+    ...EXPENSE_CATEGORIES,
+    ...categories.filter((c) => c.type === "EXPENSE").map((c) => c.name),
+    ...usedExpenseCategories,
+  ])].sort();
 
   return (
     <>
@@ -91,6 +106,26 @@ export default async function SettingsPage() {
                 ))}
               </ul>
             )}
+          </Section>
+        )}
+
+        {can.editFinance(me.role) && (
+          <Section
+            title="Group your expense categories"
+            subtitle="Powers Finance's Expenses by group and Monthly operational cost — pick which bucket each category rolls up into"
+            className="lg:col-span-2"
+          >
+            <ul className="divide-y divide-line">
+              {allExpenseCategories.map((name) => (
+                <li key={name} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                  <span className="truncate text-[14px]">{name}</span>
+                  <form action={setCategoryGroupAction}>
+                    <input type="hidden" name="name" value={name} />
+                    <AutoSubmitSelect name="group" defaultValue={categoryGroupOf(name, assignedGroups)} options={CATEGORY_GROUPS} />
+                  </form>
+                </li>
+              ))}
+            </ul>
           </Section>
         )}
 

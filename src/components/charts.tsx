@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 /* Palette validated with the dataviz palette validator (light + dark, all checks pass). */
@@ -41,23 +42,34 @@ export function BarList({ items, accent = "brand", emptyText = "Nothing recorded
   return (
     <VizVars>
       <ul className="flex flex-col gap-2.5 px-4 py-4">
-        {items.map((item) => (
-          <li key={item.label}>
-            <div className="mb-1 flex items-baseline justify-between gap-3">
-              <span className="truncate text-[13.5px] text-ink">{item.label}</span>
-              <span className="shrink-0 tabular-nums text-[13px] font-semibold text-ink">
-                {item.display ?? item.value.toLocaleString()}
-              </span>
-            </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-surface2">
-              <div
-                className="h-full rounded-full transition-[width] duration-500"
-                style={{ width: `${Math.max(2, (Math.abs(item.value) / max) * 100)}%`, background: color }}
-                title={item.hint}
-              />
-            </div>
-          </li>
-        ))}
+        {items.map((item) => {
+          const row = (
+            <>
+              <div className="mb-1 flex items-baseline justify-between gap-3">
+                <span className="truncate text-[13.5px] text-ink">{item.label}</span>
+                <span className="shrink-0 tabular-nums text-[13px] font-semibold text-ink">
+                  {item.display ?? item.value.toLocaleString()}
+                </span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-surface2">
+                <div
+                  className="h-full rounded-full transition-[width] duration-500"
+                  style={{ width: `${Math.max(2, (Math.abs(item.value) / max) * 100)}%`, background: color }}
+                  title={item.hint}
+                />
+              </div>
+            </>
+          );
+          return (
+            <li key={item.label}>
+              {item.href ? (
+                <Link href={item.href} className="block rounded-lg -mx-1 px-1 py-0.5 hover:bg-surface2/60" title={item.hint}>
+                  {row}
+                </Link>
+              ) : row}
+            </li>
+          );
+        })}
       </ul>
     </VizVars>
   );

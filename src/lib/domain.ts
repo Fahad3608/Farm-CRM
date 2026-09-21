@@ -111,6 +111,36 @@ export const INCOME_CATEGORIES = [
   "Wool / Hair", "Subsidy / Grant", "Other Income",
 ];
 
+/**
+ * Higher-level buckets an expense category rolls up into, for the Finance
+ * page's "Expenses by group" and "Monthly operational cost" views. A
+ * category's group is whatever's set in Settings; these are just the
+ * starting points for the built-in categories, and the fallback for any
+ * category no one has grouped yet.
+ */
+export const CATEGORY_GROUPS = ["Operational", "Capital & Construction", "Animal Purchases", "Other"] as const;
+export type CategoryGroup = (typeof CATEGORY_GROUPS)[number];
+
+export const DEFAULT_CATEGORY_GROUP: Record<string, CategoryGroup> = {
+  "Feed": "Operational",
+  "Veterinary": "Operational",
+  "Medicine": "Operational",
+  "Labour / Wages": "Operational",
+  "Transport": "Operational",
+  "Utilities": "Operational",
+  "Breeding / AI": "Operational",
+  "Insurance": "Operational",
+  "Animal Purchase": "Animal Purchases",
+  "Equipment": "Capital & Construction",
+  "Shed / Maintenance": "Capital & Construction",
+  "Other Expense": "Other",
+};
+
+/** Resolves a category's group: an explicit assignment, else the built-in default, else "Other". */
+export function categoryGroupOf(name: string, assigned: Map<string, string>): string {
+  return assigned.get(name) ?? DEFAULT_CATEGORY_GROUP[name] ?? "Other";
+}
+
 /** Common vaccines by species — used as quick-pick suggestions for the vet. */
 export const VACCINE_SUGGESTIONS: Partial<Record<Species, string[]>> = {
   COW: ["FMD (Foot & Mouth)", "HS (Haemorrhagic Septicaemia)", "Black Quarter", "Brucella RB51", "Anthrax", "Lumpy Skin Disease"],
