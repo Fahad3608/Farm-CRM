@@ -9,7 +9,7 @@ import Disclosure from "@/components/Disclosure";
 import ActionForm, { SubmitButton } from "@/components/ActionForm";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import { BarList, IncomeExpenseChart } from "@/components/charts";
-import { bulkEditSelectedTransactionsAction, deleteFilteredTransactionsAction, deleteSelectedTransactionsAction, deleteTransactionAction, linkTransactionAnimalAction, markNotAnimalSpecificAction, saveBulkTransactionsAction, saveTransactionAction } from "@/app/actions/finance";
+import { bulkEditSelectedTransactionsAction, deleteFilteredTransactionsAction, deleteSelectedTransactionsAction, deleteTransactionAction, editFilteredTransactionsAction, linkTransactionAnimalAction, markNotAnimalSpecificAction, saveBulkTransactionsAction, saveTransactionAction } from "@/app/actions/finance";
 import LedgerTable, { type LedgerRow } from "@/components/LedgerTable";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "@/lib/domain";
 import { fmtDate, money } from "@/lib/format";
@@ -38,7 +38,10 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
   const where = {
     date: { gte: from, lte: to },
     ...(sp.type && sp.type !== "ALL" ? { type: sp.type as never } : {}),
-    ...(sp.category && sp.category !== "ALL" ? { category: sp.category } : {}),
+    // "Contains" rather than exact match, so filtering to "Wall reconstruction"
+    // catches every sub-category sharing that prefix (Material cost, Labour
+    // cost...) in one go, instead of picking exactly one category string.
+    ...(sp.category && sp.category !== "ALL" ? { category: { contains: sp.category, mode: "insensitive" as const } } : {}),
   };
 
   const page = Math.max(1, Number(sp.page ?? 1) || 1);
@@ -286,11 +289,12 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
             <option value="ALL">All</option><option value="INCOME">Income</option><option value="EXPENSE">Expense</option>
           </select>
         </Field>
-        <Field label="Category">
-          <select name="category" defaultValue={sp.category ?? "ALL"} className="input w-auto">
-            <option value="ALL">All categories</option>
-            {[...new Set(byCategory.map((c) => c.category))].sort().map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
+        <Field label="Category" hint="Matches any category containing this text">
+          <input
+            name="category" defaultValue={sp.category && sp.category !== "ALL" ? sp.category : ""}
+            className="input w-auto" placeholder="All categories" list="filter-cat-opts"
+          />
+          <datalist id="filter-cat-opts">{allCategories.map((c) => <option key={c} value={c} />)}</datalist>
         </Field>
         <button className="btn-ghost">Apply</button>
       </form>
@@ -359,6 +363,31 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
             </div>
           }
         >
+          {deletableCount > 0 && (
+            <details className="border-b border-line px-4 py-3">
+              <summary className="cursor-pointer list-none text-[13px] font-semibold text-muted">
+                Edit all {deletableCount} shown ({sp.category && sp.category !== "ALL" ? `category contains "${sp.category}"` : "all categories"})…
+              </summary>
+              <form action={editFilteredTransactionsAction} className="mt-3 flex flex-wrap items-end gap-2">
+                <input type="hidden" name="from" value={dateVal(from)} />
+                <input type="hidden" name="to" value={dateVal(to)} />
+                <input type="hidden" name="type" value={sp.type ?? "ALL"} />
+                <input type="hidden" name="category" value={sp.category ?? "ALL"} />
+                <Field label="New date"><input type="date" name="setDate" className="input w-auto" /></Field>
+                <Field label="New category" hint="Leave blank to keep each row's own">
+                  <input name="setCategory" list="edit-all-cat-opts" className="input w-auto" placeholder="Leave blank to keep" />
+                  <datalist id="edit-all-cat-opts">{allCategories.map((c) => <option key={c} value={c} />)}</datalist>
+                </Field>
+                <ConfirmSubmit
+                  message={`Apply these changes to all ${deletableCount} shown transactions? This cannot be undone.`}
+                  className="btn-primary btn-sm"
+                >
+                  Apply
+                </ConfirmSubmit>
+              </form>
+            </details>
+          )}
+
           {ledgerRows.length === 0 ? (
             <Empty icon="🧾" title="No transactions in this period" />
           ) : (
