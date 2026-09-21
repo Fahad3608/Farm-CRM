@@ -60,6 +60,12 @@ export default async function AnimalPage({
       milkRecords: { orderBy: { date: "desc" }, take: 30 },
       breedingAsDam: { orderBy: { breedingDate: "desc" }, include: { sire: { select: { name: true, tagId: true } } } },
       feedLogs: { orderBy: { date: "desc" }, take: 60, include: { feedType: { select: { name: true, unit: true } } } },
+      purchaseBatch: {
+        include: {
+          costs: true,
+          animals: { select: { id: true } },
+        },
+      },
     },
   });
   if (!animal) notFound();
@@ -176,6 +182,25 @@ export default async function AnimalPage({
                 {showMoney && animal.purchasePrice && <InfoRow label="Purchase price" value={money(animal.purchasePrice, settings.currency)} />}
               </dl>
             </Section>
+
+            {showMoney && animal.purchaseBatch && (() => {
+              const b = animal.purchaseBatch;
+              const batchCostTotal = b.costs.reduce((s, c) => s + Number(c.amount), 0);
+              const batchAnimalCount = b.animals.length;
+              const perAnimalShare = batchAnimalCount > 0 ? batchCostTotal / batchAnimalCount : 0;
+              return (
+                <Section title="Purchase batch" action={<Link href={`/batches/${b.id}`} className="text-[13px] text-brand hover:underline">View batch</Link>}>
+                  <dl className="grid sm:grid-cols-2">
+                    <InfoRow label="Batch" value={b.name} />
+                    <InfoRow label="Date" value={fmtDate(b.date)} />
+                    <InfoRow label="Animals in batch" value={batchAnimalCount} />
+                    <InfoRow label="Shared costs" value={money(batchCostTotal, settings.currency)} />
+                    <InfoRow label="Per-animal share" value={money(perAnimalShare, settings.currency)} />
+                    <InfoRow label="Total inc. share" value={money(Number(animal.purchasePrice ?? 0) + perAnimalShare, settings.currency)} />
+                  </dl>
+                </Section>
+              );
+            })()}
 
             {bornOnFarm && hasFamily && (
               <Section title="Family">
@@ -544,6 +569,53 @@ export default async function AnimalPage({
               emptyText="No costs recorded against this animal yet."
             />
           </Section>
+
+          {animal.purchaseBatch && (() => {
+            const b = animal.purchaseBatch;
+            const batchCostTotal = b.costs.reduce((s, c) => s + Number(c.amount), 0);
+            const batchAnimalCount = b.animals.length;
+            const perAnimalShare = batchAnimalCount > 0 ? batchCostTotal / batchAnimalCount : 0;
+            return (
+              <Section
+                title="Batch shared costs"
+                subtitle={`From "${b.name}" — split across ${batchAnimalCount} animals`}
+                action={<Link href={`/batches/${b.id}`} className="text-[13px] text-brand hover:underline">View batch</Link>}
+                className="lg:col-span-2"
+              >
+                {b.costs.length === 0 ? (
+                  <p className="px-4 py-3 text-[13.5px] text-muted">No additional costs in this batch.</p>
+                ) : (
+                  <div className="scroll-x">
+                    <table className="w-full min-w-[400px]">
+                      <thead>
+                        <tr>
+                          <th className="th">Cost item</th>
+                          <th className="th text-right">Total</th>
+                          <th className="th text-right">This animal&apos;s share</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {b.costs.map((c) => (
+                          <tr key={c.id} className="row">
+                            <td className="td">{c.description}</td>
+                            <td className="td text-right tabular-nums">{money(c.amount, settings.currency)}</td>
+                            <td className="td text-right tabular-nums">{money(Number(c.amount) / batchAnimalCount, settings.currency)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="border-t-2 border-line">
+                          <td className="td font-semibold">Total share</td>
+                          <td className="td text-right tabular-nums font-semibold">{money(batchCostTotal, settings.currency)}</td>
+                          <td className="td text-right tabular-nums font-semibold">{money(perAnimalShare, settings.currency)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                )}
+              </Section>
+            );
+          })()}
         </div>
       )}
     </>
