@@ -118,5 +118,41 @@ export async function deleteBatchAction(fd: FormData) {
     prisma.purchaseBatch.delete({ where: { id } }),
   ]);
   revalidatePath("/batches");
+  revalidatePath("/finance");
   redirect("/batches");
+}
+
+export async function backfillBatchCostTransactionsAction(_prev: State, _fd: FormData): Promise<State> {
+  const user = await requireUser();
+  if (!can.editFinance(user.role)) return { error: "Not permitted." };
+
+  const costs = await prisma.batchCost.findMany({
+    where: { transaction: null },
+    include: { batch: { select: { name: true, date: true } } },
+  });
+
+  let added = 0;
+  for (const cost of costs) {
+    await prisma.transaction.create({
+      data: {
+        date: cost.batch.date,
+        type: "EXPENSE",
+        category: "Batch Cost",
+        amount: cost.amount,
+        description: `${cost.description} — ${cost.batch.name}`,
+        notAnimalSpecific: true,
+        batchCostId: cost.id,
+        createdById: user.id,
+      },
+    });
+    added++;
+  }
+
+  revalidatePath("/finance");
+  revalidatePath("/dashboard");
+  return {
+    ok: added > 0
+      ? `Added ${added} missing batch cost${added === 1 ? "" : "s"} to Finance.`
+      : "Nothing to fix — every batch cost already has a Finance entry.",
+  };
 }

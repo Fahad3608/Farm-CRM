@@ -10,6 +10,7 @@ import Disclosure from "@/components/Disclosure";
 import { deleteUserAction, saveFarmSettingsAction, saveUserAction } from "@/app/actions/settings";
 import { createCategoryAction, deleteCategoryAction, setCategoryGroupAction } from "@/app/actions/categories";
 import { backfillPurchaseTransactionsAction } from "@/app/actions/animals";
+import { backfillBatchCostTransactionsAction } from "@/app/actions/batches";
 import { fmtDate } from "@/lib/format";
 import { Icon } from "@/components/icons";
 import { CATEGORY_GROUPS, EXPENSE_CATEGORIES, categoryGroupOf } from "@/lib/domain";
@@ -138,6 +139,9 @@ export default async function SettingsPage() {
             <div className="p-4">
               <ActionForm action={backfillPurchaseTransactionsAction}>
                 <SubmitButton className="btn-ghost">Sync animal purchases into Finance</SubmitButton>
+              </ActionForm>
+              <ActionForm action={backfillBatchCostTransactionsAction}>
+                <SubmitButton className="btn-ghost">Sync batch costs into Finance</SubmitButton>
               </ActionForm>
             </div>
           </Section>
