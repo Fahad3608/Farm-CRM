@@ -198,18 +198,77 @@ async function main() {
     }
   }
 
-  for (let m = 5; m >= 0; m--) {
+  // ── Monthly running expenses (from farm mastersheet) ─────
+  const expenses: { date: string; amount: number; desc: string; category: string; vendor?: string; ref?: string }[] = [
+    // June 2026
+    { date: "2026-06-10", amount: 17000,  desc: "June - Farm rent",                       category: "Farm Rent",          ref: "Paid by Fahad" },
+    { date: "2026-06-15", amount: 20000,  desc: "Farm monthly - uncle",                   category: "Feed",               vendor: "Uncle", ref: "Paid by Fahad" },
+    { date: "2026-06-15", amount: 700,    desc: "Ghass day 1",                            category: "Feed",               ref: "Paid by Fahad" },
+    { date: "2026-06-16", amount: 1000,   desc: "Ghass day 2",                            category: "Feed",               ref: "Paid by Fahad" },
+    { date: "2026-06-17", amount: 1500,   desc: "Deworming Vet",                          category: "Veterinary",         ref: "Paid by Fahad" },
+    { date: "2026-06-20", amount: 800,    desc: "Ghass Javed - 1.5 mann",                 category: "Feed",               ref: "Paid by Fahad" },
+    { date: "2026-06-21", amount: 700,    desc: "Javed ghass",                            category: "Feed",               ref: "Paid by Harris" },
+    { date: "2026-06-23", amount: 5500,   desc: "Javed salary",                           category: "Labour / Wages",     vendor: "Javed", ref: "Paid by Fahad" },
+    { date: "2026-06-24", amount: 10000,  desc: "Haris -> uncle",                         category: "Feed",               vendor: "Uncle", ref: "Paid by Harris" },
+    { date: "2026-06-27", amount: 5000,   desc: "Haris -> uncle",                         category: "Feed",               vendor: "Uncle", ref: "Paid by Harris" },
+    { date: "2026-06-27", amount: 3800,   desc: "Chairs",                                 category: "Equipment",          ref: "Paid by Harris" },
+    { date: "2026-06-28", amount: 2450,   desc: "Ashgar vet",                             category: "Veterinary",         vendor: "Ashgar", ref: "Paid by Harris" },
+    { date: "2026-06-29", amount: 1300,   desc: "Javed ghass",                            category: "Feed",               ref: "Paid by Harris" },
+    { date: "2026-06-29", amount: 4000,   desc: "M Ramzan vet",                           category: "Veterinary",         vendor: "M Ramzan", ref: "Paid by Harris" },
+    // July 2026
+    { date: "2026-07-01", amount: 2000,   desc: "Javed salary",                           category: "Labour / Wages",     vendor: "Javed", ref: "Paid by Harris" },
+    { date: "2026-07-02", amount: 40000,  desc: "CCTV Cameras",                           category: "Equipment",          ref: "Paid by Harris" },
+    { date: "2026-07-02", amount: 2000,   desc: "Camera labour",                          category: "Equipment",          ref: "Paid by Harris" },
+    { date: "2026-07-05", amount: 25000,  desc: "Uncle - Farm feed",                      category: "Feed",               vendor: "Uncle", ref: "Paid by Harris" },
+    { date: "2026-07-08", amount: 12000,  desc: "Javed salary",                           category: "Labour / Wages",     vendor: "Javed", ref: "Paid by Fahad" },
+    { date: "2026-07-10", amount: 4000,   desc: "Wanda - milk",                           category: "Feed",               ref: "Paid by Fahad" },
+    { date: "2026-07-10", amount: 1500,   desc: "Chokar",                                 category: "Feed",               ref: "Paid by Fahad" },
+    { date: "2026-07-10", amount: 4000,   desc: "Wanda - milk",                           category: "Feed",               ref: "Paid by Fahad" },
+    { date: "2026-07-10", amount: 2500,   desc: "Mustaqeem autos",                        category: "Equipment",          vendor: "Mustaqeem autos", ref: "Paid by Fahad" },
+    { date: "2026-07-10", amount: 4000,   desc: "Cooler wire",                            category: "Equipment",          ref: "Paid by Fahad" },
+    { date: "2026-07-10", amount: 11000,  desc: "Battery",                                category: "Equipment",          ref: "Paid by Fahad" },
+    { date: "2026-07-11", amount: 3000,   desc: "Camera sim pkg",                         category: "Utilities",          ref: "Paid by Fahad" },
+    { date: "2026-07-24", amount: 20000,  desc: "Uncle - Farm feed",                      category: "Feed",               vendor: "Uncle", ref: "Paid by Harris" },
+    { date: "2026-07-25", amount: 25000,  desc: "M Hussain",                              category: "Other Expense",      vendor: "M Hussain", ref: "Paid by Harris" },
+    { date: "2026-07-26", amount: 25000,  desc: "Uncle - Farm feed",                      category: "Feed",               vendor: "Uncle", ref: "Paid by Harris" },
+    { date: "2026-07-31", amount: 9200,   desc: "Hamid vet",                              category: "Veterinary",         vendor: "Hamid", ref: "Paid by Fahad" },
+    // August 2026
+    { date: "2026-08-05", amount: 15000,  desc: "Javed salary",                           category: "Labour / Wages",     vendor: "Javed", ref: "Paid by Fahad" },
+    { date: "2026-08-10", amount: 3000,   desc: "Camera sim pkg",                         category: "Utilities",          ref: "Paid by Fahad" },
+    { date: "2026-08-12", amount: 4000,   desc: "Javed salary",                           category: "Labour / Wages",     vendor: "Javed", ref: "Paid by Fahad" },
+    { date: "2026-08-12", amount: 1200,   desc: "Hamid Vet",                              category: "Veterinary",         vendor: "Hamid", ref: "Paid by Fahad" },
+    { date: "2026-08-17", amount: 2000,   desc: "Javed salary",                           category: "Labour / Wages",     vendor: "Javed", ref: "Paid by Harris" },
+    { date: "2026-08-17", amount: 23600,  desc: "Solar Plate",                            category: "Equipment",          ref: "Paid by Fahad" },
+    { date: "2026-08-17", amount: 700,    desc: "Loader kraya",                           category: "Equipment",          ref: "Paid by Fahad" },
+    { date: "2026-08-17", amount: 2500,   desc: "Hamid Vet",                              category: "Veterinary",         vendor: "Hamid", ref: "Paid by Fahad" },
+    { date: "2026-08-18", amount: 10000,  desc: "Javed loan",                             category: "Other Expense",      vendor: "Javed", ref: "Paid by Fahad" },
+    { date: "2026-08-18", amount: 50000,  desc: "Uncle - Farm feed",                      category: "Feed",               vendor: "Uncle", ref: "Paid by Harris" },
+    { date: "2026-08-29", amount: 30000,  desc: "Uncle - Farm feed",                      category: "Feed",               vendor: "Uncle", ref: "Paid by Harris" },
+    { date: "2026-08-29", amount: 20000,  desc: "Javed salary",                           category: "Labour / Wages",     vendor: "Javed", ref: "Paid by Fahad" },
+    // September 2026
+    { date: "2026-09-12", amount: 34500,  desc: "Shed Partition cost",                    category: "Shed / Maintenance", ref: "Paid by Fahad" },
+    { date: "2026-09-12", amount: 24200,  desc: "Chicken Coop cost",                      category: "Shed / Maintenance", ref: "Paid by Fahad" },
+    { date: "2026-09-12", amount: 6000,   desc: "Water drum",                             category: "Equipment",          ref: "Paid by Fahad" },
+    { date: "2026-09-12", amount: 1000,   desc: "Tokaraay",                               category: "Equipment",          ref: "Paid by Fahad" },
+    { date: "2026-09-12", amount: 12000,  desc: "Drum frames",                            category: "Equipment",          ref: "Paid by Fahad" },
+    { date: "2026-09-12", amount: 1300,   desc: "Frames karaya",                          category: "Equipment",          ref: "Paid by Fahad" },
+    { date: "2026-09-12", amount: 9000,   desc: "Ducks 4x",                               category: "Animal Purchase",    ref: "Paid by Fahad" },
+    { date: "2026-09-12", amount: 1000,   desc: "Javed",                                  category: "Labour / Wages",     vendor: "Javed", ref: "Paid by Harris" },
+    { date: "2026-09-15", amount: 22500,  desc: "Remaining advance to Arham - 100k completed", category: "Other Expense", vendor: "Arham", ref: "Paid by Harris" },
+    { date: "2026-09-16", amount: 600,    desc: "Javed",                                  category: "Labour / Wages",     vendor: "Javed", ref: "Paid by Harris" },
+    { date: "2026-09-16", amount: 7800,   desc: "Camera sim pkg 90 days - both cameras",  category: "Utilities",          ref: "Paid by Fahad" },
+    { date: "2026-09-16", amount: 3000,   desc: "Dr Abdul haq - Black bachri insemination", category: "Breeding / AI",   vendor: "Dr Abdul Haq", ref: "Paid by Harris" },
+    { date: "2026-09-17", amount: 20000,  desc: "Uncle - Farm feed",                      category: "Feed",               vendor: "Uncle", ref: "Paid by Harris" },
+    { date: "2026-09-18", amount: 500,    desc: "Javed",                                  category: "Other Expense",      vendor: "Javed", ref: "Paid by Harris" },
+  ];
+
+  for (const e of expenses) {
     await prisma.transaction.create({
       data: {
-        date: monthsAgo(m), type: "INCOME", category: "Milk Sales",
-        amount: 42000 + m * 1800, description: "Monthly milk sales to local dairy",
-        vendor: "Al-Noor Dairy", paymentMethod: "Bank transfer", createdById: owner.id,
-      },
-    });
-    await prisma.transaction.create({
-      data: {
-        date: monthsAgo(m), type: "EXPENSE", category: "Labour / Wages",
-        amount: 25000, description: "Farm hand monthly wage", paymentMethod: "Cash", createdById: owner.id,
+        date: new Date(e.date), type: "EXPENSE", category: e.category,
+        amount: e.amount, description: e.desc,
+        vendor: e.vendor ?? null, reference: e.ref ?? null,
+        notAnimalSpecific: true, createdById: owner.id,
       },
     });
   }
@@ -312,7 +371,8 @@ async function main() {
   ]);
 
   console.log("✔ Purchase batches seeded: 3 batches with 10 animals + 2 standalone purchases.");
-  console.log("✔ Demo data loaded: 25 animals, health, feed, milk, breeding, finance and batch records.");
+  console.log("✔ Monthly expenses seeded: 56 entries (June–September) from the farm mastersheet.");
+  console.log("✔ Demo data loaded: 25 animals, health, feed, milk, breeding, finance, batches and monthly expenses.");
 }
 
 main()

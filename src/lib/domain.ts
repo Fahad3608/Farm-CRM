@@ -102,8 +102,8 @@ export const ROUTES = ["IM (intramuscular)", "SC (subcutaneous)", "IV (intraveno
 
 export const EXPENSE_CATEGORIES = [
   "Feed", "Veterinary", "Medicine", "Animal Purchase", "Labour / Wages",
-  "Equipment", "Transport", "Utilities", "Shed / Maintenance", "Breeding / AI",
-  "Insurance", "Other Expense",
+  "Equipment", "Transport", "Utilities", "Farm Rent", "Shed / Maintenance",
+  "Breeding / AI", "Batch Cost", "Insurance", "Other Expense",
 ];
 
 export const INCOME_CATEGORIES = [
@@ -128,7 +128,9 @@ export const DEFAULT_CATEGORY_GROUP: Record<string, CategoryGroup> = {
   "Labour / Wages": "Operational",
   "Transport": "Operational",
   "Utilities": "Operational",
+  "Farm Rent": "Operational",
   "Breeding / AI": "Operational",
+  "Batch Cost": "Operational",
   "Insurance": "Operational",
   "Animal Purchase": "Animal Purchases",
   "Equipment": "Capital & Construction",
