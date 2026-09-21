@@ -61,8 +61,6 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       by: ["animalId"],
       where: { date: { gte: from, lte: to }, type: "EXPENSE", animalId: { not: null } },
       _sum: { amount: true },
-      orderBy: { _sum: { amount: "desc" } },
-      take: 12,
     }),
     prisma.transaction.findMany({
       where: needsReviewWhere,
@@ -86,12 +84,13 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
   const income = Number(totals.find((t) => t.type === "INCOME")?._sum.amount ?? 0);
   const expense = Number(totals.find((t) => t.type === "EXPENSE")?._sum.amount ?? 0);
 
-  const animalNames = new Map(
-    (await prisma.animal.findMany({
-      where: { id: { in: perAnimal.map((p) => p.animalId!).filter(Boolean) } },
-      select: { id: true, name: true, tagId: true },
-    })).map((a) => [a.id, a])
-  );
+  // Every active animal, not just the ones with a cost already logged this
+  // period — so an animal with nothing spent on it yet still shows up, at
+  // PKR 0, instead of silently vanishing from the list.
+  const perAnimalSpend = new Map(perAnimal.map((p) => [p.animalId!, Number(p._sum.amount ?? 0)]));
+  const costPerAnimal = animals
+    .map((a) => ({ ...a, spend: perAnimalSpend.get(a.id) ?? 0 }))
+    .sort((a, b) => b.spend - a.spend);
 
   // One bucket per month across the whole selected range. Only the most recent
   // twelve are charted, so a wide range still shows current activity instead of
@@ -321,17 +320,14 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
           />
         </Section>
 
-        <Section title="Cost per animal" subtitle="Highest spend in this period" className="lg:col-span-2">
+        <Section title="Cost per animal" subtitle={`Every animal on the farm · highest spend in this period first`} className="lg:col-span-2">
           <BarList
-            items={perAnimal.map((p) => {
-              const a = animalNames.get(p.animalId!);
-              return {
-                label: a ? `${a.name} (${a.tagId})` : "Unknown",
-                value: Number(p._sum.amount ?? 0),
-                display: money(p._sum.amount, settings.currency),
-              };
-            })}
-            emptyText="Link transactions, feed or health records to animals to see this."
+            items={costPerAnimal.map((a) => ({
+              label: `${a.name} (${a.tagId})`,
+              value: a.spend,
+              display: money(a.spend, settings.currency),
+            }))}
+            emptyText="Add an animal to see this."
           />
         </Section>
 
