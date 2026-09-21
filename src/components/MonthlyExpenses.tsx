@@ -11,7 +11,7 @@ export default function MonthlyExpenses({ months, currency, params }: {
       <Link href="/settings#expense-groups" className="btn-ghost btn-sm">Manage categories</Link>
     }>
       <p className="border-b border-line px-4 py-3 text-[13px] text-muted">
-        Matches your filters. Running costs cover day-to-day operations; equipment, construction and animal purchases are shown separately.
+        Matches your filters. Operational costs cover day-to-day operations; equipment, construction and animal purchases are shown separately.
         Dates follow the ledger entry, so a partial month includes only the selected days.
       </p>
       {months.length === 0 ? <Empty title="No expenses match these filters" hint="Choose a wider date range or include expenses in the type filter." /> : (

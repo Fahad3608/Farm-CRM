@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Fragment, useState, useTransition } from "react";
 import { Avatar, Badge, Field } from "./ui";
 import ActionForm, { SubmitButton, type ActionState } from "./ActionForm";
+import RecordActions from "./RecordActions";
 import ConfirmSubmit from "./ConfirmSubmit";
 import { Icon } from "./icons";
 import { SPECIES } from "@/lib/domain";
@@ -23,6 +24,7 @@ export type LedgerRow = {
   isAuto: boolean;
   animal: { id: string; name: string; species: keyof typeof SPECIES; profilePhotoId: string | null } | null;
   animalLabel: string | null;
+  equipment: { id: string; name: string } | null;
   usdText: string | null;
 };
 
@@ -110,9 +112,11 @@ export default function LedgerTable({
               <button type="button" onClick={() => setBulkEditOpen((o) => !o)} className="btn-ghost btn-sm">
                 {bulkEditOpen ? "Cancel edit" : "Edit selected"}
               </button>
-              <button type="button" onClick={handleDeleteSelected} disabled={isPending} className="btn-danger btn-sm">
+              <RecordActions label="Selected transaction actions">
+              <button type="button" onClick={handleDeleteSelected} disabled={isPending} className="record-delete-action">
                 {isPending ? "Deleting…" : "Delete selected"}
               </button>
+              </RecordActions>
             </div>
           </div>
           {bulkEditOpen && (
@@ -195,7 +199,7 @@ export default function LedgerTable({
                     )}
                     {t.type === "EXPENSE" && t.isAuto && <span className="mt-1 block text-[11px] text-muted">Category managed by linked record</span>}
                   </td>
-                  <td className="td">{t.description ?? "—"}</td>
+                  <td className="td">{t.description ?? "—"}{t.equipment && <Link href={`/equipment/${t.equipment.id}`} className="mt-1 block text-[12px] text-brand hover:underline">{t.equipment.name} →</Link>}</td>
                   <td className="td">
                     {t.animal ? (
                       <Link href={`/animals/${t.animal.id}?tab=costs`} className="inline-flex items-center gap-1.5 text-brand hover:underline">
@@ -227,12 +231,10 @@ export default function LedgerTable({
                         >
                           <Icon.pencil className="h-4 w-4" />
                         </button>
-                        <form action={deleteOne}>
+                        <RecordActions label="Transaction actions"><form action={deleteOne}>
                           <input type="hidden" name="id" value={t.id} />
-                          <ConfirmSubmit message="Delete this transaction?" className="rounded-lg p-1.5 text-muted hover:text-bad">
-                            <Icon.trash className="h-4 w-4" />
-                          </ConfirmSubmit>
-                        </form>
+                          <ConfirmSubmit className="record-delete-action" message="Delete this transaction?">Delete transaction</ConfirmSubmit>
+                        </form></RecordActions>
                       </div>
                     )}
                   </td>

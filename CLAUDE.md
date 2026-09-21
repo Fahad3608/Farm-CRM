@@ -41,6 +41,7 @@ src/
       breeding/      # Breeding records
       customers/     # Buyers, their rate cards, deliveries and income
       dashboard/     # Owner/manager dashboard
+      equipment/     # Equipment and construction build register with linked ledger costs
       feed/          # Feed logs
       finance/       # Transaction ledger
       health/        # Health records
@@ -91,6 +92,12 @@ A `Customer` holds one `CustomerRate` per product they take (unit, unit price, a
 
 Finance filters apply consistently to the summary, charts, monthly expense groups and ledger. `monthlyExpenses` in `src/lib/monthlyExpenses.ts` groups expense entries by UTC ledger month, using existing category assignments. Only months containing expenses render; category links preserve the payer and selected date boundaries. `MonthlyExpenses` shows running costs, equipment/construction, animal purchases and other costs separately. Lifetime funding and animal costs are in a separate expandable section and remain unfiltered. Finance includes an inline expense-category manager (create categories and assign groups), plus a category-only editor on each manual expense in the ledger. Auto-linked expenses remain protected. Category assignments in Finance or Settings affect all historical months; the monthly view never rewrites transaction categories.
 
+### Equipment & construction
+
+`Equipment` tracks an item name, equipment/construction kind, planned/in-progress/completed status, location and notes. `Transaction.equipmentId` links manual farm-wide expenses directly to an item: linking does not copy expenses; removing an item or unlinking a cost preserves the ledger. Costs entered on the item page are regular expense transactions, editable through Finance. Only owners/managers access this module. Finance mutations revalidate equipment totals. The Finance page links to `/equipment` for mobile users as well as the desktop navigation.
+
+Built-in subcategories include Construction Costs and Material Cost (Equipment) under Capital & Construction (displayed as Construction & equipment), and Farm Rent and Caretaker Salary under Operational (displayed as Operational costs). Record Javed as the vendor/payee rather than inventing a separate salary category per person. Existing expense categories are preserved.
+
 ### Paid by / investment
 
 Every `Transaction` can name whose money it was (`paidBy`, free text). `Payer` is the managed suggestion list in Settings — renaming one updates every entry saved under the old name, deleting one leaves entries alone, exactly like `Category`. Finance filters by payer (`NO_PAYER` from `src/lib/domain.ts` selects entries with none) and totals each person's investment across all expenses ever recorded.
@@ -102,6 +109,10 @@ All in `src/components/ui.tsx` and individual files:
 - **Interactive**: `Tabs` (query param driven via `?tab=`), `Disclosure` (inline add forms), `ConfirmSubmit`, `ActionForm`
 - **Domain**: `AnimalForm`, `HealthRecordForm`, `BatchForm`, `BatchCostForm`, `LedgerTable`, `CustomerForm`, `CustomerRateForm`, `SaleForm`, etc.
 - **Charts**: `BarList` and `IncomeExpenseChart` in `src/components/charts.tsx` — one palette, defined there and validated for both themes
+
+### Record actions
+
+Deletion lives in `RecordActions` contextual popovers beside the record or in its page header. Keep destructive controls inside these menus, use explicit text labels and `ConfirmSubmit`, and preserve role checks. Do not add separate danger panels. Native popovers escape table/card clipping and support outside-click and Escape dismissal. Male animal profiles show Growth only; milk UI and new milk records are limited to females.
 
 ### Design tokens
 

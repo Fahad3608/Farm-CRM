@@ -1,8 +1,8 @@
 import { categoryGroupOf, CATEGORY_GROUPS } from "./domain";
 
 export const EXPENSE_GROUP_LABELS: Record<string, string> = {
-  Operational: "Running costs",
-  "Capital & Construction": "Equipment & construction",
+  Operational: "Operational costs",
+  "Capital & Construction": "Construction & equipment",
   "Animal Purchases": "Animal purchases",
   Other: "Other / review",
 };

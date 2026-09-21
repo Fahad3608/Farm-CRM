@@ -7,13 +7,13 @@ import { getSettings } from "@/lib/settings";
 import { Card, Empty, Field, PageHeader, Section, StatTile } from "@/components/ui";
 import Disclosure from "@/components/Disclosure";
 import ActionForm, { SubmitButton } from "@/components/ActionForm";
+import RecordActions from "@/components/RecordActions";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import FeedLogForm from "@/components/FeedLogForm";
 import { BarList } from "@/components/charts";
 import { saveFeedTypeAction, deleteFeedLogAction } from "@/app/actions/feed";
 
 import { fmtDate, money, num } from "@/lib/format";
-import { Icon } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -136,12 +136,10 @@ export default async function FeedPage() {
                       {showMoney && <td className="td tabular-nums">{money(l.totalCost, settings.currency)}</td>}
                       <td className="td text-muted">{l.groupLabel ?? "Individual"}</td>
                       <td className="td text-right">
-                        <form action={deleteFeedLogAction}>
+                        <RecordActions label="Feed log actions"><form action={deleteFeedLogAction}>
                           <input type="hidden" name="id" value={l.id} />
-                          <ConfirmSubmit message="Delete this feed log?" className="rounded-lg p-1.5 text-muted hover:text-bad">
-                            <Icon.trash className="h-4 w-4" />
-                          </ConfirmSubmit>
-                        </form>
+                          <ConfirmSubmit className="record-delete-action" message="Delete this feed log?">Delete feed log</ConfirmSubmit>
+                        </form></RecordActions>
                       </td>
                     </tr>
                   ))}

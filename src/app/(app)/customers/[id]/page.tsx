@@ -7,6 +7,7 @@ import { getSettings } from "@/lib/settings";
 import { Badge, Card, Empty, Section, StatTile } from "@/components/ui";
 import { Icon } from "@/components/icons";
 import Disclosure from "@/components/Disclosure";
+import RecordActions from "@/components/RecordActions";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import CustomerForm from "@/components/CustomerForm";
 import CustomerRateForm from "@/components/CustomerRateForm";
@@ -94,7 +95,8 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
             {customer.notes && <p className="mt-1 text-[14px] text-muted">{customer.notes}</p>}
           </div>
           {canEdit && (
-            <Disclosure label="Edit buyer">
+            <div className="flex items-start gap-2">
+              <Disclosure label="Edit buyer">
               <Card className="w-80 p-4">
                 <CustomerForm customer={{
                   id: customer.id, name: customer.name, phone: customer.phone,
@@ -102,6 +104,13 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                 }} />
               </Card>
             </Disclosure>
+              <RecordActions label="Buyer actions"><form action={deleteCustomerAction}>
+              <input type="hidden" name="id" value={customer.id} />
+              <ConfirmSubmit className="record-delete-action"
+                message={`Delete ${customer.name}, ${sales.length} deliver${sales.length === 1 ? "y" : "ies"} and ${money(allTime, settings.currency)} of linked income? This cannot be undone.`}
+              >Delete buyer</ConfirmSubmit>
+            </form></RecordActions>
+            </div>
           )}
         </div>
       </header>
@@ -150,15 +159,13 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                           <div className="tabular-nums font-semibold">{daily > 0 ? money(Math.round(daily * DAYS_PER_MONTH), settings.currency) : "—"}</div>
                         </div>
                         {canEdit && (
-                          <form action={deleteRateAction}>
+                          <RecordActions label="Price actions"><form action={deleteRateAction}>
                             <input type="hidden" name="id" value={r.id} />
-                            <ConfirmSubmit
+                            <ConfirmSubmit className="record-delete-action"
                               message={`Remove the ${r.product} price for ${customer.name}? Deliveries already logged keep their own price.`}
-                              className="rounded-lg p-1.5 text-muted hover:bg-surface2 hover:text-bad"
-                            >
-                              <Icon.trash className="h-4 w-4" />
-                            </ConfirmSubmit>
-                          </form>
+
+                            >Remove price</ConfirmSubmit>
+                          </form></RecordActions>
                         )}
                       </div>
                     </div>
@@ -257,15 +264,13 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                       <td className="td text-muted">{s.notes ?? "—"}</td>
                       {canEdit && (
                         <td className="td text-right">
-                          <form action={deleteSaleAction}>
+                          <RecordActions label="Delivery actions"><form action={deleteSaleAction}>
                             <input type="hidden" name="id" value={s.id} />
-                            <ConfirmSubmit
+                            <ConfirmSubmit className="record-delete-action"
                               message={`Delete the ${fmtDate(s.date)} delivery (${money(s.amount, settings.currency)})? Its income entry goes too.`}
-                              className="rounded-lg p-1.5 text-muted hover:bg-surface2 hover:text-bad"
-                            >
-                              <Icon.trash className="h-4 w-4" />
-                            </ConfirmSubmit>
-                          </form>
+
+                            >Delete delivery</ConfirmSubmit>
+                          </form></RecordActions>
                         </td>
                       )}
                     </tr>
@@ -275,24 +280,6 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
             </div>
           )}
         </Section>
-
-        {canEdit && (
-          <Card className="p-4 lg:col-span-2">
-            <h2 className="h2 text-bad">Danger zone</h2>
-            <p className="mt-1 text-[13px] text-muted">
-              Deleting this buyer removes their prices, every delivery logged against them, and the income entries those
-              deliveries created.
-            </p>
-            <form action={deleteCustomerAction} className="mt-3">
-              <input type="hidden" name="id" value={customer.id} />
-              <ConfirmSubmit
-                message={`Delete ${customer.name}, ${sales.length} deliver${sales.length === 1 ? "y" : "ies"} and ${money(allTime, settings.currency)} of linked income? This cannot be undone.`}
-              >
-                <Icon.trash className="h-4 w-4" /> Delete buyer
-              </ConfirmSubmit>
-            </form>
-          </Card>
-        )}
       </div>
     </>
   );

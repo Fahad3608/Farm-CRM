@@ -93,3 +93,9 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.5); cur
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: rgb(var(--line)); border-radius: 99px; }
+
+@layer components {
+  .record-delete-action {
+    @apply flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] font-medium text-bad hover:bg-bad/10 disabled:opacity-50;
+  }
+}
