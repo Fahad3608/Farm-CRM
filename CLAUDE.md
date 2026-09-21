@@ -1,6 +1,6 @@
 # Farm CRM
 
-Livestock farm management system. Tracks animals, health records, breeding, feed, milk production, finances, and purchase batches.
+Livestock farm management system. Tracks animals, health records, breeding, feed, milk production, purchase batches, the finance ledger, who buys the farm's produce, and who funds the farm.
 
 ## Stack
 
@@ -14,12 +14,16 @@ Livestock farm management system. Tracks animals, health records, breeding, feed
 
 ```bash
 npm run dev          # Start dev server
-npm run build        # prisma generate + migrate deploy + next build
-npm run lint         # next lint
+npm run build        # prisma generate + scripts/migrate-deploy.mjs + next build
+npx tsc --noEmit     # Typecheck — CI runs this before the build
 npm run db:seed      # Seed demo data (set SEED_DEMO_DATA=true)
-npm run db:migrate   # prisma migrate deploy (see Migrations below)
+npm run db:migrate   # scripts/migrate-deploy.mjs (see Migrations below)
 npm run db:studio    # Prisma Studio GUI
 ```
+
+`npm run lint` does nothing useful: Next 16 removed `next lint`, and there is no ESLint config or dependency in the repo. The typecheck and the build are the checks.
+
+`npm run build` and `npm run db:seed` both need a reachable `DATABASE_URL`; the build applies migrations to it.
 
 ## Project structure
 
@@ -29,8 +33,8 @@ src/
     (app)/           # Authenticated routes (layout has sidebar + nav)
       animals/       # Animal list, detail (/[id]), edit, new
       batches/       # Purchase batch list and detail
-      customers/     # Buyers, their rate cards and deliveries
       breeding/      # Breeding records
+      customers/     # Buyers, their rate cards, deliveries and income
       dashboard/     # Owner/manager dashboard
       feed/          # Feed logs
       finance/       # Transaction ledger
@@ -40,11 +44,13 @@ src/
     actions/         # Server actions (one file per domain)
     api/photos/[id]/ # Photo serving endpoint
   components/        # Shared UI components
-  lib/               # Utilities (auth, db, permissions, format, form helpers)
+  lib/               # auth, db, permissions, format, form helpers, domain constants
 prisma/
   schema.prisma      # Single schema file
   migrations/        # SQL migrations (created manually, not via prisma migrate dev)
   seed.ts            # Demo data seeder
+scripts/
+  migrate-deploy.mjs # Deploy-time migration runner (see Migrations below)
 ```
 
 ## Key patterns
@@ -81,7 +87,8 @@ Every `Transaction` can name whose money it was (`paidBy`, free text). `Payer` i
 All in `src/components/ui.tsx` and individual files:
 - **Layout**: `Card`, `Section`, `PageHeader`, `Empty`, `Badge`, `StatTile`, `Field`
 - **Interactive**: `Tabs` (query param driven via `?tab=`), `Disclosure` (inline add forms), `ConfirmSubmit`, `ActionForm`
-- **Domain**: `AnimalForm`, `HealthRecordForm`, `BatchForm`, `BatchCostForm`, `LedgerTable`, etc.
+- **Domain**: `AnimalForm`, `HealthRecordForm`, `BatchForm`, `BatchCostForm`, `LedgerTable`, `CustomerForm`, `CustomerRateForm`, `SaleForm`, etc.
+- **Charts**: `BarList` and `IncomeExpenseChart` in `src/components/charts.tsx` — one palette, defined there and validated for both themes
 
 ### Design tokens
 
@@ -94,6 +101,8 @@ Key-value store via `Setting` model. Retrieved with `getSettings()` from `src/li
 ### Expense categories
 
 Built-in categories in `src/lib/domain.ts` (`EXPENSE_CATEGORIES`, `INCOME_CATEGORIES`). Each rolls up into a group (`Operational`, `Capital & Construction`, `Animal Purchases`, `Other`) via `CATEGORY_GROUPS`. Users can add custom categories in Settings.
+
+`SALE_PRODUCTS` in the same file maps what buyers take (Milk, Ghee, Manure...) to its usual unit and the income category its sales land under, so a rate card pre-fills itself. It is a suggestion list, not a constraint.
 
 ## Database
 
@@ -113,7 +122,7 @@ CI runs migrations against an empty database, so a data migration that reads exi
 ### Key models
 
 - `Animal` — core entity, linked to health, feed, milk, weight, breeding, photos, transactions, and optionally a `PurchaseBatch`
-- `Transaction` — single ledger for all income/expenses; auto-linked from health/feed/batch cost records via unique FKs
+- `Transaction` — single ledger for all income/expenses; auto-linked from health/feed/batch cost/sale records via unique FKs, and optionally stamped with `paidBy`
 - `PurchaseBatch` + `BatchCost` — groups animals bought on the same trip with shared costs
 - `Customer` + `CustomerRate` + `Sale` — buyers, what they pay per unit, and each delivery (auto-linked to income)
 - `Payer` — who funds the farm; suggestion list behind `Transaction.paidBy`
@@ -129,7 +138,13 @@ Required env vars (see `.env.example`):
 
 ## CI
 
-GitHub Actions workflow (`.github/workflows/ci.yml`) runs `npm run build` against a fresh PostgreSQL service container. This validates TypeScript, migrations, and the full build.
+GitHub Actions workflow (`.github/workflows/ci.yml`), on every branch, against a fresh `postgres:16-alpine` service container:
+
+1. `npx tsc --noEmit`
+2. `npm run build` — which applies every migration from empty, so a broken migration fails here
+3. `npx prisma migrate diff --from-schema-datasource ... --to-schema-datamodel ... --exit-code` — fails if `schema.prisma` and the migrations have drifted apart
+
+Any schema change therefore needs a matching migration in the same commit, or step 3 fails even though the build passed.
 
 ## Conventions
 
@@ -137,6 +152,8 @@ GitHub Actions workflow (`.github/workflows/ci.yml`) runs `npm run build` agains
 - Dates formatted with `fmtDate()` from the same file
 - Redirect calls in server actions must be outside try/catch blocks (Next.js throws on redirect)
 - Animal deletion detaches transactions (preserves ledger) before cascading the delete
+- Prisma `Decimal` values are class instances, so they cannot be handed to a client component. Convert at the page boundary (`Number(...)` for maths, `.toString()` where precision matters) — see `SaleForm`'s rates and `LedgerTable`'s amounts
+- A 12-month strip of mostly empty months is clutter. Roll up only the months that have data (see the customer detail page)
 
 <!-- BEGIN:nextjs-agent-rules -->
 
