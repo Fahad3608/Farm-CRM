@@ -11,13 +11,13 @@ import ConfirmSubmit from "@/components/ConfirmSubmit";
 import { BarList, IncomeExpenseChart } from "@/components/charts";
 import { bulkEditSelectedTransactionsAction, deleteFilteredTransactionsAction, deleteSelectedTransactionsAction, deleteTransactionAction, editFilteredTransactionsAction, linkTransactionAnimalAction, markNotAnimalSpecificAction, saveBulkTransactionsAction, saveTransactionAction } from "@/app/actions/finance";
 import LedgerTable, { type LedgerRow } from "@/components/LedgerTable";
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, categoryGroupOf } from "@/lib/domain";
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, NO_PAYER, categoryGroupOf } from "@/lib/domain";
 import { fmtDate, money } from "@/lib/format";
 import { historicalRates, isoDate } from "@/lib/fx";
 
 export const dynamic = "force-dynamic";
 
-type Search = { from?: string; to?: string; type?: string; category?: string | string[]; page?: string; fx?: string };
+type Search = { from?: string; to?: string; type?: string; category?: string | string[]; paidBy?: string; page?: string; fx?: string };
 
 function toParams(sp: Search) {
   const p = new URLSearchParams();
@@ -49,16 +49,23 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
   // shows them together without needing to type a shared prefix.
   const selectedCategories = ([] as string[]).concat(sp.category ?? []).filter(Boolean);
 
+  // "Paid by" narrows the ledger to one person's money — NO_PAYER picks out the
+  // entries nobody has been put against yet, which is how they get assigned.
+  const payerFilter = sp.paidBy ?? "";
+  const paidByWhere =
+    payerFilter === NO_PAYER ? { paidBy: null } : payerFilter ? { paidBy: payerFilter } : {};
+
   const where = {
     date: { gte: from, lte: to },
     ...(sp.type && sp.type !== "ALL" ? { type: sp.type as never } : {}),
     ...(selectedCategories.length > 0 ? { category: { in: selectedCategories } } : {}),
+    ...paidByWhere,
   };
 
   const page = Math.max(1, Number(sp.page ?? 1) || 1);
 
   const needsReviewWhere = { type: "EXPENSE" as const, animalId: null, feedLogId: null, notAnimalSpecific: false };
-  const [txns, txnCount, deletableCount, totals, byCategory, animals, perAnimal, needsReview, needsReviewCount, dbCategories] = await Promise.all([
+  const [txns, txnCount, deletableCount, totals, byCategory, animals, perAnimal, needsReview, needsReviewCount, dbCategories, dbPayers, investmentByPayer] = await Promise.all([
     prisma.transaction.findMany({
       where,
       orderBy: { date: "desc" },
@@ -67,7 +74,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       include: { animal: { select: { id: true, name: true, tagId: true, species: true, profilePhotoId: true } } },
     }),
     prisma.transaction.count({ where }),
-    prisma.transaction.count({ where: { ...where, healthRecordId: null, feedLogId: null, batchCostId: null } }),
+    prisma.transaction.count({ where: { ...where, healthRecordId: null, feedLogId: null, batchCostId: null, saleId: null } }),
     prisma.transaction.groupBy({ by: ["type"], where: { date: { gte: from, lte: to } }, _sum: { amount: true } }),
     prisma.transaction.groupBy({ by: ["type", "category"], where: { date: { gte: from, lte: to } }, _sum: { amount: true } }),
     prisma.animal.findMany({ where: { status: "ACTIVE" }, select: { id: true, name: true, tagId: true }, orderBy: { tagId: "asc" } }),
@@ -86,6 +93,10 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
     }),
     prisma.transaction.count({ where: needsReviewWhere }),
     prisma.category.findMany({ orderBy: { name: "asc" } }),
+    prisma.payer.findMany({ orderBy: { name: "asc" } }),
+    // Investment is cumulative, so it's totalled over everything ever spent
+    // rather than the ledger's current date filter.
+    prisma.transaction.groupBy({ by: ["paidBy"], where: { type: "EXPENSE" }, _sum: { amount: true }, _count: true }),
   ]);
 
   // Every category input on this page offers the same list: the built-in
@@ -97,6 +108,21 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
     ...dbCategories.map((c) => c.name),
     ...byCategory.map((c) => c.category),
   ])].sort();
+
+  // Everyone who could be picked as a payer: the ones set up in Settings plus
+  // any name already saved on an entry, so a payer never disappears from the
+  // filter just because they were removed from the suggestion list.
+  const allPayers = [...new Set([
+    ...dbPayers.map((p) => p.name),
+    ...investmentByPayer.map((r) => r.paidBy).filter((n): n is string => Boolean(n)),
+  ])].sort();
+
+  // What each person has put into the farm, biggest share first.
+  const investmentRows = investmentByPayer
+    .map((r) => ({ payer: r.paidBy, total: Number(r._sum.amount ?? 0), count: r._count }))
+    .sort((a, b) => b.total - a.total);
+  const investedTotal = investmentRows.reduce((sum, r) => sum + r.total, 0);
+  const unassignedInvestment = investmentRows.find((r) => r.payer === null);
 
   const income = Number(totals.find((t) => t.type === "INCOME")?._sum.amount ?? 0);
   const expense = Number(totals.find((t) => t.type === "EXPENSE")?._sum.amount ?? 0);
@@ -123,37 +149,6 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       return { label, value: v.total, display: money(v.total, settings.currency), href: `/finance?${q.toString()}` };
     })
     .sort((a, b) => b.value - a.value);
-
-  // Rolling last 12 months of "Operational" spend, independent of the page's
-  // date filter — a standing trend, not a one-off "this period" number, so
-  // it stays meaningful whatever the ledger above is currently filtered to.
-  const opsMonthsStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-  const opsCategories = allCategories.filter((c) => categoryGroupOf(c, assignedGroups) === "Operational");
-  const opsTxns = opsCategories.length
-    ? await prisma.transaction.findMany({
-        where: { type: "EXPENSE", category: { in: opsCategories }, date: { gte: opsMonthsStart } },
-        select: { date: true, amount: true },
-      })
-    : [];
-  const opsBuckets: { key: string; month: string; total: number }[] = [];
-  const opsCursor = new Date(opsMonthsStart);
-  for (let i = 0; i < 12; i++) {
-    opsBuckets.push({
-      key: `${opsCursor.getFullYear()}-${opsCursor.getMonth()}`,
-      month: opsCursor.toLocaleDateString(undefined, { month: "short", year: "2-digit" }),
-      total: 0,
-    });
-    opsCursor.setMonth(opsCursor.getMonth() + 1);
-  }
-  const opsBucketByKey = new Map(opsBuckets.map((b) => [b.key, b]));
-  for (const t of opsTxns) {
-    const d = new Date(t.date);
-    const b = opsBucketByKey.get(`${d.getFullYear()}-${d.getMonth()}`);
-    if (b) b.total += Number(t.amount);
-  }
-  const thisMonthOps = opsBuckets[opsBuckets.length - 1]?.total ?? 0;
-  const lastMonthOps = opsBuckets[opsBuckets.length - 2]?.total ?? 0;
-  const opsDelta = lastMonthOps > 0 ? Math.round(((thisMonthOps - lastMonthOps) / lastMonthOps) * 100) : null;
 
   // Every active animal, not just the ones with a cost already logged this
   // period — so an animal with nothing spent on it yet still shows up, at
@@ -189,6 +184,14 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
   const chartSubtitle =
     buckets.length > MAX_BARS ? `Most recent ${MAX_BARS} months of the selected range` : "By month";
 
+  const payerHref = (name: string) => {
+    const q = toParams(sp);
+    q.delete("paidBy");
+    q.delete("page");
+    q.append("paidBy", name);
+    return `/finance?${q.toString()}`;
+  };
+
   const dateVal = (d: Date) => d.toISOString().slice(0, 10);
   const categoryLabel = selectedCategories.length > 0 ? selectedCategories.join(", ") : "All categories";
 
@@ -223,9 +226,10 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       vendor: t.vendor,
       paymentMethod: t.paymentMethod,
       reference: t.reference,
+      paidBy: t.paidBy,
       type: t.type,
       amount: t.amount.toString(),
-      isAuto: Boolean(t.healthRecordId || t.feedLogId || t.batchCostId),
+      isAuto: Boolean(t.healthRecordId || t.feedLogId || t.batchCostId || t.saleId),
       animal: t.animal,
       animalLabel: t.animalLabel,
       usdText: showUsd ? (rate ? `≈ ${money(Number(t.amount) * rate, "USD")} on ${fmtDate(t.date)}` : "USD rate unavailable") : null,
@@ -313,6 +317,10 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
                 <datalist id="pay-opts"><option value="Cash" /><option value="Bank transfer" /><option value="Mobile wallet" /><option value="Cheque" /><option value="Credit" /></datalist>
               </Field>
               <Field label="Reference / receipt no."><input name="reference" className="input" /></Field>
+              <Field label="Paid by" hint="Whose money this was — totals up as their investment">
+                <input name="paidBy" className="input" list="payer-opts" defaultValue={payerFilter === NO_PAYER ? "" : payerFilter} placeholder="Partner or investor" />
+                <datalist id="payer-opts">{allPayers.map((p) => <option key={p} value={p} />)}</datalist>
+              </Field>
               <div className="sm:col-span-2"><SubmitButton>Save transaction</SubmitButton></div>
             </ActionForm>
           </Card>
@@ -333,6 +341,10 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
                 <Field label="Category *" className="sm:col-span-2">
                   <input name="category" required className="input" list="bulk-cat-opts" placeholder="Startup Cost" />
                   <datalist id="bulk-cat-opts">{allCategories.map((c) => <option key={c} value={c} />)}</datalist>
+                </Field>
+                <Field label="Paid by" hint="Applies to every line below">
+                  <input name="paidBy" className="input" list="bulk-payer-opts" placeholder="Partner or investor" />
+                  <datalist id="bulk-payer-opts">{allPayers.map((p) => <option key={p} value={p} />)}</datalist>
                 </Field>
                 <Field label="Linked animal" className="sm:col-span-2" hint="Leave as farm-wide unless every line below is one animal's cost">
                   <select name="animalId" className="input">
@@ -381,27 +393,78 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
             </div>
           </details>
         </Field>
+        <Field label="Paid by">
+          <select name="paidBy" defaultValue={payerFilter} className="input w-auto">
+            <option value="">Anyone</option>
+            {allPayers.map((p) => <option key={p} value={p}>{p}</option>)}
+            <option value={NO_PAYER}>Not recorded</option>
+          </select>
+        </Field>
         <button className="btn-ghost">Apply</button>
       </form>
 
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <Section
-          title="Monthly operational cost"
-          subtitle="Feed, wages, utilities and the like — the recurring cost of running the farm, last 12 months, regardless of the filter above"
+          title="Investment by payer"
+          subtitle={`Every expense ever recorded, by whose money it was · ${money(investedTotal, settings.currency)} in total`}
           className="lg:col-span-2"
         >
-          <div className="grid gap-4 p-4 sm:grid-cols-[200px_1fr]">
-            <StatTile
-              label="This month"
-              value={money(thisMonthOps, settings.currency)}
-              hint={opsDelta === null ? "No prior month to compare" : `${opsDelta > 0 ? "+" : ""}${opsDelta}% vs last month`}
-              tone={opsDelta === null ? "muted" : opsDelta > 0 ? "bad" : "good"}
-            />
-            <BarList
-              items={opsBuckets.map((b) => ({ label: b.month, value: b.total, display: money(b.total, settings.currency) }))}
-              emptyText="No operational categories set up yet — group some in Settings."
-            />
-          </div>
+          {investmentRows.length === 0 ? (
+            <Empty icon="🤝" title="Nothing recorded yet" hint="Put a name in the “Paid by” field on an entry and each person's total builds up here." />
+          ) : (
+            <>
+              <BarList
+                items={investmentRows.map((r) => ({
+                  label: r.payer ?? "Not recorded",
+                  value: r.total,
+                  display: money(r.total, settings.currency),
+                  href: payerHref(r.payer ?? NO_PAYER),
+                  hint: `${investedTotal > 0 ? Math.round((r.total / investedTotal) * 100) : 0}% of all spending · ${r.count} entr${r.count === 1 ? "y" : "ies"}`,
+                }))}
+                emptyText="No expenses recorded yet."
+              />
+              <div className="scroll-x border-t border-line">
+                <table className="w-full min-w-[420px]">
+                  <thead>
+                    <tr>
+                      <th className="th">Paid by</th>
+                      <th className="th text-right">Entries</th>
+                      <th className="th text-right">Share</th>
+                      <th className="th text-right">Invested</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {investmentRows.map((r) => (
+                      <tr key={r.payer ?? "unassigned"} className="row">
+                        <td className="td">
+                          <Link href={payerHref(r.payer ?? NO_PAYER)} className="text-brand hover:underline">
+                            {r.payer ?? "Not recorded"}
+                          </Link>
+                        </td>
+                        <td className="td text-right tabular-nums text-muted">{r.count}</td>
+                        <td className="td text-right tabular-nums text-muted">
+                          {investedTotal > 0 ? `${Math.round((r.total / investedTotal) * 100)}%` : "—"}
+                        </td>
+                        <td className="td text-right tabular-nums font-semibold">{money(r.total, settings.currency)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-line">
+                      <td className="td font-semibold" colSpan={3}>Total</td>
+                      <td className="td text-right tabular-nums font-semibold">{money(investedTotal, settings.currency)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              {unassignedInvestment && (
+                <p className="border-t border-line px-4 py-2.5 text-[12.5px] text-muted">
+                  {unassignedInvestment.count} entr{unassignedInvestment.count === 1 ? "y has" : "ies have"} no payer yet. Filter
+                  by “Paid by → Not recorded”, tick the rows in the ledger and use “Edit selected” to assign them in one go.
+                </p>
+              )}
+            </>
+          )}
         </Section>
 
         <Section title="Income vs expenses" subtitle={chartSubtitle} className="lg:col-span-2">
@@ -459,6 +522,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
                   <input type="hidden" name="from" value={dateVal(from)} />
                   <input type="hidden" name="to" value={dateVal(to)} />
                   <input type="hidden" name="type" value={sp.type ?? "ALL"} />
+                  <input type="hidden" name="paidBy" value={payerFilter} />
                   {selectedCategories.map((c) => <input key={c} type="hidden" name="category" value={c} />)}
                   <ConfirmSubmit
                     message={`Delete ${deletableCount} transaction${deletableCount === 1 ? "" : "s"} (${fmtDate(from)} — ${fmtDate(to)}, category "${categoryLabel}")?${txnCount > deletableCount ? ` ${txnCount - deletableCount} auto-linked health/feed ${txnCount - deletableCount === 1 ? "entry" : "entries"} will be kept.` : ""} This cannot be undone.`}
@@ -480,11 +544,16 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
                 <input type="hidden" name="from" value={dateVal(from)} />
                 <input type="hidden" name="to" value={dateVal(to)} />
                 <input type="hidden" name="type" value={sp.type ?? "ALL"} />
+                <input type="hidden" name="paidBy" value={payerFilter} />
                 {selectedCategories.map((c) => <input key={c} type="hidden" name="category" value={c} />)}
                 <Field label="New date"><input type="date" name="setDate" className="input w-auto" /></Field>
                 <Field label="New category" hint="Leave blank to keep each row's own">
                   <input name="setCategory" list="edit-all-cat-opts" className="input w-auto" placeholder="Leave blank to keep" />
                   <datalist id="edit-all-cat-opts">{allCategories.map((c) => <option key={c} value={c} />)}</datalist>
+                </Field>
+                <Field label="Paid by" hint="Leave blank to keep each row's own">
+                  <input name="setPaidBy" list="edit-all-payer-opts" className="input w-auto" placeholder="Leave blank to keep" />
+                  <datalist id="edit-all-payer-opts">{allPayers.map((p) => <option key={p} value={p} />)}</datalist>
                 </Field>
                 <ConfirmSubmit
                   message={`Apply these changes to all ${deletableCount} shown transactions? This cannot be undone.`}
@@ -504,6 +573,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
               currency={settings.currency}
               animals={animals}
               categories={allCategories}
+              payers={allPayers}
               deleteOne={deleteTransactionAction}
               deleteSelected={deleteSelectedTransactionsAction}
               bulkEditSelected={bulkEditSelectedTransactionsAction}

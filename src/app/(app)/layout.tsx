@@ -24,11 +24,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     !isVet && { href: "/feed", label: "Feed", icon: Icon.feed },
     can.viewFinance(user.role) && { href: "/finance", label: "Finance", icon: Icon.finance },
     can.viewFinance(user.role) && { href: "/batches", label: "Batches", icon: Icon.batch },
+    can.viewFinance(user.role) && { href: "/customers", label: "Customers", icon: Icon.customers },
     can.manageSettings(user.role) && { href: "/settings", label: "Settings", icon: Icon.settings },
   ].filter(Boolean) as { href: string; label: string; icon: (p: { className?: string }) => React.JSX.Element }[];
 
-  // Phones get the 5 most useful destinations in a bottom bar.
-  const mobileNav = nav.filter((n) => n.href !== "/settings").slice(0, 5);
+  // Phones get five tabs. An owner or manager spends their day in the money
+  // pages, so those take the slots ahead of Feed and Breeding, which stay in
+  // the desktop sidebar and at their own URLs. Every other role keeps the
+  // first five destinations it can see.
+  const financeTabs = ["/dashboard", "/animals", "/finance", "/customers", "/health"];
+  const mobileNav = can.viewFinance(user.role)
+    ? financeTabs.flatMap((href) => nav.filter((n) => n.href === href))
+    : nav.filter((n) => n.href !== "/settings").slice(0, 5);
 
   return (
     <div className="min-h-dvh md:flex">
