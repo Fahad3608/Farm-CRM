@@ -86,13 +86,13 @@ export default function SaleForm({
           type="button" onClick={() => setRange(false)}
           className={`flex-1 rounded-lg px-3 py-1.5 ${!range ? "bg-surface font-medium shadow-sm" : "text-muted"}`}
         >
-          One day
+          One-off
         </button>
         <button
           type="button" onClick={() => setRange(true)}
           className={`flex-1 rounded-lg px-3 py-1.5 ${range ? "bg-surface font-medium shadow-sm" : "text-muted"}`}
         >
-          Every day in a range
+          Monthly
         </button>
       </div>
 
@@ -172,19 +172,26 @@ export default function SaleForm({
       </Field>
 
       <div className="rounded-xl border border-line bg-surface2 px-3 py-2.5 text-[13.5px]">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-muted">{range ? "Per day" : "Total"}</span>
-          <span className="font-semibold tabular-nums">{money(perDay, currency)}</span>
-        </div>
-        {range && (
-          <div className="mt-1 flex items-center justify-between gap-3 border-t border-line pt-1">
-            <span className="text-muted">{days > 0 ? `${days} day${days === 1 ? "" : "s"}` : "Check the dates"}</span>
-            <span className="font-semibold tabular-nums">{days > 0 ? money(total, currency) : "—"}</span>
+        {range ? (
+          <>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-muted">Per day</span>
+              <span className="tabular-nums text-muted">{money(perDay, currency)}</span>
+            </div>
+            <div className="mt-1 flex items-center justify-between gap-3 border-t border-line pt-1">
+              <span className="text-muted">{days > 0 ? `Monthly total (${days} day${days === 1 ? "" : "s"})` : "Check the dates"}</span>
+              <span className="font-semibold tabular-nums">{days > 0 ? money(total, currency) : "—"}</span>
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-muted">Total</span>
+            <span className="font-semibold tabular-nums">{money(perDay, currency)}</span>
           </div>
         )}
       </div>
 
-      <SubmitButton>{range ? "Record every day" : "Record delivery"}</SubmitButton>
+      <SubmitButton>{range ? "Record monthly total" : "Record delivery"}</SubmitButton>
     </ActionForm>
   );
 }

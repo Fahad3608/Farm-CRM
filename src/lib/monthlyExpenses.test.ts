@@ -6,10 +6,10 @@ const entry = (date: string, category: string, amount: string, type = "EXPENSE")
 
 test("monthly categories reconcile without rounding drift and exclude income", () => {
   const months = monthlyExpenses([
-    entry("2026-09-01T12:00:00Z", "Feed", "0.10"),
-    entry("2026-09-02T12:00:00Z", "Feed", "0.20"),
+    entry("2026-09-01T12:00:00Z", "Feeding Cost", "0.10"),
+    entry("2026-09-02T12:00:00Z", "Feeding Cost", "0.20"),
     entry("2026-09-02T12:00:00Z", "Equipment", "50.00"),
-    entry("2026-09-02T12:00:00Z", "Animal Purchase", "100.00"),
+    entry("2026-09-02T12:00:00Z", "Farm animal", "100.00"),
     entry("2026-09-02T12:00:00Z", "Unclear", "7.00"),
     entry("2026-09-02T12:00:00Z", "Milk Sales", "900", "INCOME"),
   ], new Map());
@@ -32,7 +32,7 @@ test("explicit category assignments override defaults and months with no expense
 });
 
 test("category links preserve payer and partial date range but reset pagination", () => {
-  const params = new URLSearchParams("from=2026-09-12&to=2026-09-21&paidBy=Fahad&page=3&category=Feed&category=Medicine&type=ALL");
+  const params = new URLSearchParams("from=2026-09-12&to=2026-09-21&paidBy=Fahad&page=3&category=Feeding Cost&category=Medicine&type=ALL");
   const url = new URL(monthlyExpenseHref(params, "2026-09", "Medicine"), "https://farm.test");
   assert.equal(url.hash, "#ledger");
   assert.equal(url.searchParams.get("from"), "2026-09-12");
@@ -45,10 +45,10 @@ test("category links preserve payer and partial date range but reset pagination"
 });
 
 test("month links keep selected categories and use correct leap-year bounds", () => {
-  const url = new URL(monthlyExpenseHref(new URLSearchParams("from=2024-01-01&to=2024-12-31&category=Feed&category=Medicine"), "2024-02"), "https://farm.test");
+  const url = new URL(monthlyExpenseHref(new URLSearchParams("from=2024-01-01&to=2024-12-31&category=Feeding Cost&category=Medicine"), "2024-02"), "https://farm.test");
   assert.equal(url.searchParams.get("from"), "2024-02-01");
   assert.equal(url.searchParams.get("to"), "2024-02-29");
-  assert.deepEqual(url.searchParams.getAll("category"), ["Feed", "Medicine"]);
+  assert.deepEqual(url.searchParams.getAll("category"), ["Feeding Cost", "Medicine"]);
 });
 
 test("construction and equipment materials stay separate from rent and caretaker salary", () => {
