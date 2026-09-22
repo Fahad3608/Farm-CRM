@@ -11,7 +11,7 @@ import RecordActions from "@/components/RecordActions";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import { BarList, IncomeExpenseChart } from "@/components/charts";
 import { categorizeExpenseAction, bulkEditSelectedTransactionsAction, deleteFilteredTransactionsAction, deleteSelectedTransactionsAction, deleteTransactionAction, editFilteredTransactionsAction, linkTransactionAnimalAction, markNotAnimalSpecificAction, saveBulkTransactionsAction, saveTransactionAction } from "@/app/actions/finance";
-import ExpenseCategoryManager from "@/components/ExpenseCategoryManager";
+
 import MonthlyExpenses from "@/components/MonthlyExpenses";
 import { monthlyExpenses, EXPENSE_GROUP_LABELS } from "@/lib/monthlyExpenses";
 import LedgerTable, { type LedgerRow } from "@/components/LedgerTable";
@@ -292,8 +292,6 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       <div className="mb-5">
         <MonthlyExpenses months={months} currency={settings.currency} params={toParams({ ...sp, from: dateVal(from), to: dateVal(to) })} />
       </div>
-
-      <ExpenseCategoryManager categories={expenseCategories.map(name => ({ name, group: categoryGroupOf(name, assignedGroups) }))} />
 
       {needsReviewCount > 0 && (
         <div className="mb-4">
