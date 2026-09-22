@@ -104,7 +104,7 @@ export const EXPENSE_CATEGORIES = [
   "Feeding Cost", "Direct Purchase - Feed", "Vet Cost", "Worker Salary",
   "Labour Cost", "Equipment", "Farm Rent", "Operational Cost", "Construction",
   "Farm animal", "Loan - Javed", "Tenent Advance", "mics",
-  "Feed", "Veterinary", "Medicine", "Animal Purchase", "Labour / Wages",
+  "Veterinary", "Medicine", "Labour / Wages",
   "Transport", "Utilities", "Caretaker Salary", "Shed / Maintenance",
   "Breeding / AI", "Batch Cost", "Insurance", "Other Expense",
 ];
@@ -138,7 +138,6 @@ export const DEFAULT_CATEGORY_GROUP: Record<string, CategoryGroup> = {
   "Loan - Javed": "Other",
   "Tenent Advance": "Other",
   "mics": "Other",
-  "Feed": "Operational",
   "Veterinary": "Operational",
   "Medicine": "Operational",
   "Labour / Wages": "Operational",
@@ -148,7 +147,6 @@ export const DEFAULT_CATEGORY_GROUP: Record<string, CategoryGroup> = {
   "Breeding / AI": "Operational",
   "Batch Cost": "Operational",
   "Insurance": "Operational",
-  "Animal Purchase": "Animal Purchases",
   "Shed / Maintenance": "Capital & Construction",
   "Other Expense": "Other",
 };

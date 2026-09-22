@@ -194,7 +194,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         </Section>
 
         {canEdit && (
-          <Section title="Record a delivery" subtitle="One day, or every day across a range">
+          <Section title="Record a delivery" subtitle="One-off, or a monthly total across a date range">
             <div className="p-4">
               <SaleForm customerId={customer.id} rates={saleRates} currency={settings.currency} />
             </div>

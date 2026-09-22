@@ -200,9 +200,8 @@ export async function recordSaleAction(_prev: State, fd: FormData): Promise<Stat
 }
 
 /**
- * Logs the same daily quantity for every day in a range — how a month of milk
- * is usually billed. One row per day, so a single day can still be corrected
- * or deleted afterwards.
+ * Logs one monthly sale for the entire date range — total quantity is
+ * daily qty × days, recorded as a single Sale + Transaction entry.
  */
 export async function recordSaleRangeAction(_prev: State, fd: FormData): Promise<State> {
   const user = await requireUser();
@@ -213,8 +212,8 @@ export async function recordSaleRangeAction(_prev: State, fd: FormData): Promise
     const customer = await prisma.customer.findUniqueOrThrow({ where: { id: customerId }, select: { name: true } });
     const terms = await resolveSaleTerms(fd, customerId);
 
-    const quantity = dec(fd, "quantity") ?? terms.defaultQty;
-    if (quantity === null || quantity <= 0) return { error: "Enter a daily quantity greater than zero." };
+    const dailyQty = dec(fd, "quantity") ?? terms.defaultQty;
+    if (dailyQty === null || dailyQty <= 0) return { error: "Enter a daily quantity greater than zero." };
 
     const from = reqDate(fd, "from", "From");
     const to = reqDate(fd, "to", "To");
@@ -223,50 +222,48 @@ export async function recordSaleRangeAction(_prev: State, fd: FormData): Promise
     const days = Math.round((to.getTime() - from.getTime()) / 86400000) + 1;
     if (days > 366) return { error: "That's more than a year — record it a month or a season at a time." };
 
-    const amount = round2(quantity * terms.unitPrice);
+    const totalQty = round2(dailyQty * days);
+    const amount = round2(totalQty * terms.unitPrice);
     const notes = str(fd, "notes");
+    const fmtFrom = from.toISOString().slice(0, 10);
+    const fmtTo = to.toISOString().slice(0, 10);
 
-    for (let i = 0; i < days; i++) {
-      const date = new Date(from);
-      date.setDate(date.getDate() + i);
+    const sale = await prisma.sale.create({
+      data: {
+        customerId,
+        rateId: terms.rateId,
+        date: from,
+        product: terms.product,
+        unit: terms.unit,
+        quantity: totalQty,
+        unitPrice: terms.unitPrice,
+        amount,
+        category: terms.category,
+        notes: [notes, `${dailyQty} ${terms.unit}/day × ${days} days (${fmtFrom} to ${fmtTo})`].filter(Boolean).join(" · "),
+        createdById: user.id,
+      },
+    });
 
-      const sale = await prisma.sale.create({
-        data: {
-          customerId,
-          rateId: terms.rateId,
-          date,
-          product: terms.product,
-          unit: terms.unit,
-          quantity,
-          unitPrice: terms.unitPrice,
-          amount,
-          category: terms.category,
-          notes,
-          createdById: user.id,
-        },
-      });
-
-      await prisma.transaction.create({
-        data: {
-          date,
-          type: "INCOME",
-          category: terms.category,
-          amount,
-          description: saleDescription(customer.name, terms.product, quantity, terms.unit, terms.unitPrice),
-          vendor: customer.name,
-          notAnimalSpecific: true,
-          saleId: sale.id,
-          createdById: user.id,
-        },
-      });
-    }
+    await prisma.transaction.create({
+      data: {
+        date: from,
+        type: "INCOME",
+        category: terms.category,
+        amount,
+        description: `${terms.product} — ${totalQty} ${terms.unit} (${dailyQty}/day × ${days} days) × ${terms.unitPrice} · ${customer.name}`,
+        vendor: customer.name,
+        notAnimalSpecific: true,
+        saleId: sale.id,
+        createdById: user.id,
+      },
+    });
 
     revalidatePath(`/customers/${customerId}`);
     revalidatePath("/customers");
     revalidatePath("/finance");
     revalidatePath("/dashboard");
     return {
-      ok: `Recorded ${days} day${days === 1 ? "" : "s"} — ${round2(amount * days).toLocaleString()} in total.`,
+      ok: `Recorded ${totalQty} ${terms.unit} over ${days} days — ${round2(amount).toLocaleString()} total.`,
     };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Could not save." };
