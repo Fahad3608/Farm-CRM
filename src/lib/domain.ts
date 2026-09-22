@@ -106,7 +106,6 @@ export const EXPENSE_CATEGORIES = [
   "Farm animal", "Loan - Javed", "Tenent Advance", "mics",
   "Feed", "Veterinary", "Medicine", "Animal Purchase", "Labour / Wages",
   "Transport", "Utilities", "Caretaker Salary", "Shed / Maintenance",
-  "Construction Costs", "Material Cost (Equipment)",
   "Breeding / AI", "Batch Cost", "Insurance", "Other Expense",
 ];
 
@@ -146,8 +145,6 @@ export const DEFAULT_CATEGORY_GROUP: Record<string, CategoryGroup> = {
   "Transport": "Operational",
   "Utilities": "Operational",
   "Caretaker Salary": "Operational",
-  "Construction Costs": "Capital & Construction",
-  "Material Cost (Equipment)": "Capital & Construction",
   "Breeding / AI": "Operational",
   "Batch Cost": "Operational",
   "Insurance": "Operational",

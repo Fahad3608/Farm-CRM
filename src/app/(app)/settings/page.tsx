@@ -179,7 +179,7 @@ export default async function SettingsPage() {
           >
             <p className="border-b border-line px-4 py-3 text-[13px] text-muted">
               Operational costs include Farm Rent, Caretaker Salary, feed and veterinary care.
-              Construction &amp; equipment includes Construction Costs and Material Cost (Equipment). Animal Purchases covers livestock.
+              Construction &amp; equipment includes Construction and Equipment. Animal Purchases covers livestock.
               Use Other when the purpose needs review. Changes regroup existing entries in every month.
             </p>
             <ul className="divide-y divide-line">

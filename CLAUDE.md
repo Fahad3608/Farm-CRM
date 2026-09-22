@@ -96,7 +96,7 @@ Finance filters apply consistently to the summary, charts, monthly expense group
 
 `Equipment` tracks an item name, equipment/construction kind, planned/in-progress/completed status, location and notes. `Transaction.equipmentId` links manual farm-wide expenses directly to an item: linking does not copy expenses; removing an item or unlinking a cost preserves the ledger. Costs entered on the item page are regular expense transactions, editable through Finance. Only owners/managers access this module. Finance mutations revalidate equipment totals. The Finance page links to `/equipment` for mobile users as well as the desktop navigation.
 
-Built-in subcategories include Construction Costs and Material Cost (Equipment) under Capital & Construction (displayed as Construction & equipment), and Farm Rent and Caretaker Salary under Operational (displayed as Operational costs). Record Javed as the vendor/payee rather than inventing a separate salary category per person. Existing expense categories are preserved.
+Built-in subcategories include Construction and Equipment under Capital & Construction, and Farm Rent and Caretaker Salary under Operational. Record Javed as the vendor/payee rather than inventing a separate salary category per person. Existing expense categories are preserved.
 
 ### Paid by / investment
 
