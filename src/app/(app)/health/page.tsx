@@ -50,7 +50,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
 
       {can.writeHealth(user.role) && (
         <div className="mb-4">
-          <Disclosure label="Add health record">
+          <Disclosure label="Record a vet visit">
             <Card className="p-4">
               <HealthRecordForm animals={animalOpts} vaccineSuggestions={allSuggestions} showCosts={showMoney} />
             </Card>
