@@ -96,6 +96,90 @@ export async function saveHealthRecordAction(_prev: State, fd: FormData): Promis
   return { ok: "Health record saved." };
 }
 
+/**
+ * Creates the same health record for multiple animals at once — a vet visit
+ * where every selected animal gets the same treatment, vaccination, etc.
+ * Each animal gets its own HealthRecord and linked Transaction.
+ */
+export async function saveVetVisitAction(_prev: State, fd: FormData): Promise<State> {
+  const user = await requireUser();
+  if (!can.writeHealth(user.role)) return { error: "You do not have permission to add health records." };
+
+  const animalIds = fd.getAll("animalId").map(String).filter(Boolean);
+  if (animalIds.length === 0) return { error: "Select at least one animal." };
+
+  const costs = can.viewFinance(user.role)
+    ? { medicineCost: dec(fd, "medicineCost"), vetFee: dec(fd, "vetFee") }
+    : null;
+
+  try {
+    const base = {
+      type: enumOf<HealthRecordType>(fd, "type", TYPES, "TREATMENT"),
+      date: reqDate(fd, "date", "Date"),
+      title: reqStr(fd, "title", "Title"),
+      medicine: str(fd, "medicine"),
+      brand: str(fd, "brand"),
+      batchNo: str(fd, "batchNo"),
+      dosage: str(fd, "dosage"),
+      route: str(fd, "route"),
+      diagnosis: str(fd, "diagnosis"),
+      treatment: str(fd, "treatment"),
+      symptoms: str(fd, "symptoms"),
+      temperatureC: dec(fd, "temperatureC"),
+      weightKg: dec(fd, "weightKg"),
+      withdrawalUntil: date(fd, "withdrawalUntil"),
+      nextDueDate: date(fd, "nextDueDate"),
+      followUpDone: false,
+      ...costs,
+      vetName: str(fd, "vetName") ?? (user.role === "VET" ? user.name : null),
+      vetId: user.role === "VET" ? user.id : (str(fd, "vetId") ?? null),
+      notes: str(fd, "notes"),
+    };
+
+    for (const animalId of animalIds) {
+      const record = await prisma.healthRecord.create({
+        data: { ...base, animalId, createdById: user.id },
+      });
+
+      if (base.weightKg) {
+        await prisma.weightRecord.create({
+          data: { animalId, date: base.date, weightKg: base.weightKg, notes: `Recorded during: ${base.title}` },
+        });
+      }
+
+      if (costs) {
+        const total = (costs.medicineCost ?? 0) + (costs.vetFee ?? 0);
+        if (total > 0) {
+          const category = base.type === "VACCINATION" || base.type === "DEWORMING" || base.type === "INJECTION" ? "Medicine" : "Veterinary";
+          await prisma.transaction.create({
+            data: {
+              date: base.date,
+              type: "EXPENSE",
+              category,
+              amount: total,
+              description: `${base.title}${base.medicine ? ` — ${base.medicine}` : ""}`,
+              vendor: base.vetName,
+              animalId,
+              healthRecordId: record.id,
+              createdById: user.id,
+            },
+          });
+        }
+      }
+
+      revalidatePath(`/animals/${animalId}`);
+    }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Could not save the records." };
+  }
+
+  revalidatePath("/health");
+  revalidatePath("/vet");
+  revalidatePath("/finance");
+  revalidatePath("/dashboard");
+  return { ok: `Health record saved for ${animalIds.length} animal${animalIds.length === 1 ? "" : "s"}.` };
+}
+
 export async function deleteHealthRecordAction(fd: FormData) {
   const user = await requireUser();
   if (!can.writeHealth(user.role)) throw new Error("Not permitted.");
