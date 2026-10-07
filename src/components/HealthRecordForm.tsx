@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import ActionForm, { SubmitButton } from "./ActionForm";
 import { saveHealthRecordAction, saveVetVisitAction } from "@/app/actions/health";
 import { Field } from "./ui";
-import { ROUTES } from "@/lib/domain";
 
 type AnimalOpt = { id: string; label: string; species: string };
 
@@ -110,19 +109,7 @@ export default function HealthRecordForm({
         </Field>
 
         {isMedicine && (
-          <>
-            <Field label="Medicine / vaccine name"><input name="medicine" className="input" placeholder="Ivermectin 1%" /></Field>
-            <Field label="Brand / manufacturer"><input name="brand" className="input" /></Field>
-            <Field label="Dosage"><input name="dosage" className="input" placeholder="5 ml" /></Field>
-            <Field label="Route">
-              <input name="route" className="input" list="route-opts" placeholder="IM (intramuscular)" />
-              <datalist id="route-opts">{ROUTES.map((r) => <option key={r} value={r} />)}</datalist>
-            </Field>
-            <Field label="Batch / lot no."><input name="batchNo" className="input" /></Field>
-            <Field label="Milk / meat withdrawal until" hint="Do not sell produce before this date">
-              <input type="date" name="withdrawalUntil" className="input" />
-            </Field>
-          </>
+          <Field label="Medicine / vaccine name"><input name="medicine" className="input" placeholder="Ivermectin 1%" /></Field>
         )}
 
         <Field label="Symptoms observed" className="sm:col-span-2"><input name="symptoms" className="input" placeholder="Off feed, limping on right hind leg…" /></Field>
