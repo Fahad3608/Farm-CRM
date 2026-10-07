@@ -57,6 +57,7 @@ export default async function AnimalPage({
       mother: { select: { id: true, name: true, tagId: true } },
       father: { select: { id: true, name: true, tagId: true } },
       damOf: { select: { id: true, name: true, tagId: true, dateOfBirth: true }, orderBy: { dateOfBirth: "desc" } },
+      sireOf: { select: { id: true, name: true, tagId: true, dateOfBirth: true }, orderBy: { dateOfBirth: "desc" } },
       photos: { orderBy: { createdAt: "desc" }, select: { id: true, caption: true, createdAt: true } },
       healthRecords: { orderBy: { date: "desc" }, include: { vet: { select: { name: true } } } },
       weights: { orderBy: { date: "desc" }, take: 30 },
@@ -167,7 +168,7 @@ export default async function AnimalPage({
 
       {tab === "overview" && (() => {
         const bornOnFarm = animal.acquisition === "BORN_ON_FARM";
-        const hasFamily = animal.mother || animal.father || animal.damOf.length > 0;
+        const hasFamily = animal.mother || animal.father || animal.damOf.length > 0 || animal.sireOf.length > 0;
 
         // A plain-language opening line, then the reference grid below it for the rest.
         const arrival = bornOnFarm
@@ -212,22 +213,25 @@ export default async function AnimalPage({
               );
             })()}
 
-            {bornOnFarm && hasFamily && (
+            {hasFamily && (
               <Section title="Family">
                 <dl className="grid sm:grid-cols-2 sm:gap-y-1 sm:py-2">
                   <InfoRow label="Mother" value={animal.mother ? <Link className="text-brand hover:underline" href={`/animals/${animal.mother.id}`}>{animal.mother.name} ({animal.mother.tagId})</Link> : null} />
                   <InfoRow label="Father" value={animal.father ? <Link className="text-brand hover:underline" href={`/animals/${animal.father.id}`}>{animal.father.name} ({animal.father.tagId})</Link> : null} />
-                  {animal.damOf.length > 0 && (
-                    <InfoRow
-                      label="Offspring"
-                      value={<span className="flex flex-wrap justify-end gap-1.5">{animal.damOf.map((c) => <Link key={c.id} href={`/animals/${c.id}`} className="chip hover:bg-surface2">{c.name}</Link>)}</span>}
-                    />
-                  )}
+                  {(animal.damOf.length > 0 || animal.sireOf.length > 0) && (() => {
+                    const offspring = [...animal.damOf, ...animal.sireOf].sort((a, b) => (b.dateOfBirth?.getTime() ?? 0) - (a.dateOfBirth?.getTime() ?? 0));
+                    return (
+                      <InfoRow
+                        label="Offspring"
+                        value={<span className="flex flex-wrap justify-end gap-1.5">{offspring.map((c) => <Link key={c.id} href={`/animals/${c.id}`} className="chip hover:bg-surface2">{c.name}</Link>)}</span>}
+                      />
+                    );
+                  })()}
                 </dl>
               </Section>
             )}
 
-            <Section title="Notes" className={bornOnFarm && hasFamily ? "" : "lg:col-span-2"}>
+            <Section title="Notes" className={hasFamily ? "" : "lg:col-span-2"}>
               <p className="whitespace-pre-wrap px-4 py-3 text-[14.5px] text-muted">{animal.notes || "No notes yet."}</p>
             </Section>
 
