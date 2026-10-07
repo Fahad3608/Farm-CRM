@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Fragment } from "react";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
@@ -44,14 +43,7 @@ export default async function AnimalsPage({ searchParams }: { searchParams: Prom
     },
   });
 
-  const [counts, calfSexCounts] = await Promise.all([
-    prisma.animal.groupBy({ by: ["species"], where: { status: "ACTIVE" }, _count: true }),
-    // Calf covers both sexes (Bachra/Bachri), so it gets its own two chips
-    // below instead of one combined "Calf" chip.
-    prisma.animal.groupBy({ by: ["sex"], where: { status: "ACTIVE", species: "CALF" }, _count: true }),
-  ]);
-  const bachraCount = calfSexCounts.find((c) => c.sex === "MALE")?._count ?? 0;
-  const bachriCount = calfSexCounts.find((c) => c.sex === "FEMALE")?._count ?? 0;
+  const counts = await prisma.animal.groupBy({ by: ["species"], where: { status: "ACTIVE" }, _count: true });
   const shown = sp.stage === "young" ? animals.filter((a) => {
     const age = ageFrom(a.dateOfBirth);
     return age !== null && age.months < SPECIES[a.species].matureMonths;
@@ -101,22 +93,11 @@ export default async function AnimalsPage({ searchParams }: { searchParams: Prom
       {counts.length > 0 && (
         <div className="mb-4 flex flex-wrap gap-2">
           <Link href={qs({ species: "ALL", sex: "" })} className="chip hover:bg-surface2">All · {counts.reduce((s, c) => s + c._count, 0)}</Link>
-          {counts.map((c) =>
-            c.species === "CALF" ? (
-              <Fragment key="calf">
-                <Link href={qs({ species: "CALF", sex: "MALE" })} className="chip hover:bg-surface2">
-                  {SPECIES.CALF.emoji} Bachra · {bachraCount}
-                </Link>
-                <Link href={qs({ species: "CALF", sex: "FEMALE" })} className="chip hover:bg-surface2">
-                  {SPECIES.CALF.emoji} Bachri · {bachriCount}
-                </Link>
-              </Fragment>
-            ) : (
-              <Link key={c.species} href={qs({ species: c.species, sex: "" })} className="chip hover:bg-surface2">
-                {SPECIES[c.species].emoji} {SPECIES[c.species].label} · {c._count}
-              </Link>
-            )
-          )}
+          {counts.map((c) => (
+            <Link key={c.species} href={qs({ species: c.species, sex: "" })} className="chip hover:bg-surface2">
+              {SPECIES[c.species].emoji} {SPECIES[c.species].label} · {c._count}
+            </Link>
+          ))}
         </div>
       )}
 

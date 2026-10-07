@@ -15,8 +15,9 @@ const TYPES = [
 ];
 
 const SPECIES_LABELS: Record<string, string> = {
-  COW: "Cow", BUFFALO: "Buffalo", CALF: "Calf", HEIFER: "Heifer",
-  GOAT: "Goat", SHEEP: "Sheep", HORSE: "Horse", POULTRY: "Poultry", OTHER: "Other",
+  COW: "Cow", BULL: "Bull", BULL_CALF: "Bull Calf", HEIFER: "Heifer",
+  HEIFER_CALF: "Heifer Calf", GOAT: "Goat", GOAT_KID: "Baby Goat",
+  SHEEP: "Sheep", HORSE: "Horse",
 };
 
 export default function HealthRecordForm({
@@ -26,6 +27,7 @@ export default function HealthRecordForm({
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [speciesFilter, setSpeciesFilter] = useState("ALL");
+  const [savedCount, setSavedCount] = useState(0);
   const today = new Date().toISOString().slice(0, 10);
   const isMedicine = ["VACCINATION", "INJECTION", "DEWORMING", "TREATMENT"].includes(type);
   const multiAnimal = !animalId && animals.length > 0;
@@ -78,7 +80,7 @@ export default function HealthRecordForm({
       action={multiAnimal ? saveVetVisitAction : saveHealthRecordAction}
       className="flex flex-col gap-4"
       resetOnSuccess
-      onSuccess={() => { setSelectedIds(new Set()); onDone?.(); }}
+      onSuccess={() => { setSavedCount((c) => c + 1); if (!multiAnimal) { setSelectedIds(new Set()); onDone?.(); } }}
     >
       {animalId && <input type="hidden" name="animalId" value={animalId} />}
 
@@ -174,6 +176,12 @@ export default function HealthRecordForm({
         </Field>
       </div>
 
+      {multiAnimal && savedCount > 0 && (
+        <div className="flex items-center gap-3 rounded-xl bg-good/10 px-3 py-2 text-[13.5px] text-good">
+          <span className="font-medium">{savedCount} record{savedCount === 1 ? "" : "s"} saved — add another below or press Done.</span>
+          <button type="button" onClick={() => { setSavedCount(0); setSelectedIds(new Set()); onDone?.(); }} className="ml-auto btn-ghost btn-sm">Done</button>
+        </div>
+      )}
       <div>
         <SubmitButton>
           {multiAnimal && selectedIds.size > 1

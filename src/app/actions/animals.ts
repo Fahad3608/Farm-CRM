@@ -8,7 +8,7 @@ import { can } from "@/lib/permissions";
 import { bool, date, dec, enumOf, reqDate, reqStr, str } from "@/lib/form";
 import type { AcquisitionType, AnimalStatus, ReproStatus, Sex, Species } from "@prisma/client";
 
-const SPECIES_VALUES = ["COW", "BUFFALO", "CALF", "HEIFER", "GOAT", "SHEEP", "HORSE", "POULTRY", "OTHER"] as const;
+const SPECIES_VALUES = ["COW", "BULL", "BULL_CALF", "HEIFER", "HEIFER_CALF", "GOAT", "GOAT_KID", "SHEEP", "HORSE"] as const;
 const SEX_VALUES = ["MALE", "FEMALE"] as const;
 const STATUS_VALUES = ["ACTIVE", "SOLD", "DECEASED", "CULLED", "LOANED_OUT"] as const;
 const REPRO_VALUES = ["NOT_APPLICABLE", "OPEN", "BRED", "PREGNANT", "LACTATING", "DRY", "CASTRATED"] as const;
@@ -42,6 +42,22 @@ async function syncPurchaseTransaction(input: {
   };
   if (existing) await prisma.transaction.update({ where: { id: existing.id }, data });
   else await prisma.transaction.create({ data: { ...data, createdById: input.userId } });
+}
+
+async function syncAnimalNameInTransactions(animalId: string, name: string, tagId: string) {
+  const txns = await prisma.transaction.findMany({
+    where: { animalId, description: { not: null } },
+    select: { id: true, description: true },
+  });
+  for (const txn of txns) {
+    if (!txn.description) continue;
+    const updated = txn.description
+      .replace(/Purchase of .+$/, `Purchase of ${name} (${tagId})`)
+      .replace(/Breeding — .+$/, `Breeding — ${name} (${tagId})`);
+    if (updated !== txn.description) {
+      await prisma.transaction.update({ where: { id: txn.id }, data: { description: updated } });
+    }
+  }
 }
 
 function readAnimal(fd: FormData) {
@@ -88,12 +104,16 @@ export async function saveAnimalAction(_prev: State, fd: FormData): Promise<Stat
     const price = "purchasePrice" in money ? money.purchasePrice : undefined;
 
     if (id) {
+      const old = await prisma.animal.findUnique({ where: { id }, select: { name: true, tagId: true } });
       await prisma.animal.update({ where: { id }, data: { ...data, ...money } });
       if (price !== undefined) {
         await syncPurchaseTransaction({
           animalId: id, name: data.name, tagId: data.tagId, acquisition: data.acquisition,
           price, date: data.dateJoined, vendor: data.sourceName, userId: user.id,
         });
+      }
+      if (old && (old.name !== data.name || old.tagId !== data.tagId)) {
+        await syncAnimalNameInTransactions(id, data.name, data.tagId);
       }
     } else {
       const created = await prisma.animal.create({ data: { ...data, ...money } });

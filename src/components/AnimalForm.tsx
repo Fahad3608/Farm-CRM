@@ -20,8 +20,10 @@ export type AnimalFormValues = {
 };
 
 const SPECIES = [
-  ["COW", "Cow 🐄"], ["BUFFALO", "Buffalo 🐃"], ["CALF", "Calf (Bachra/Bachri) 🐮"], ["HEIFER", "Heifer 🐄"],
-  ["GOAT", "Goat 🐐"], ["SHEEP", "Sheep 🐑"], ["HORSE", "Horse 🐎"], ["POULTRY", "Poultry 🐓"], ["OTHER", "Other 🐾"],
+  ["COW", "Cow 🐄"], ["BULL", "Bull 🐂"], ["BULL_CALF", "Bull Calf 🐮"],
+  ["HEIFER", "Heifer 🐄"], ["HEIFER_CALF", "Heifer Calf 🐮"],
+  ["GOAT", "Goat 🐐"], ["GOAT_KID", "Baby Goat 🐐"],
+  ["SHEEP", "Sheep 🐑"], ["HORSE", "Horse 🐎"],
 ];
 const STATUS = [["ACTIVE", "On farm"], ["SOLD", "Sold"], ["DECEASED", "Deceased"], ["CULLED", "Culled"], ["LOANED_OUT", "Loaned out"]];
 const REPRO = [["NOT_APPLICABLE", "Not applicable"], ["OPEN", "Open (not pregnant)"], ["BRED", "Bred — awaiting confirmation"],
@@ -70,9 +72,7 @@ export default function AnimalForm({
         <Field label="Species *">
           <select name="species" value={species} onChange={(e) => handleSpeciesChange(e.target.value)} className="input">
             {SPECIES.map(([v, l]) => (
-              <option key={v} value={v}>
-                {v === "CALF" ? `Calf (${sex === "MALE" ? "Bachra" : "Bachri"}) 🐮` : l}
-              </option>
+              <option key={v} value={v}>{l}</option>
             ))}
           </select>
         </Field>

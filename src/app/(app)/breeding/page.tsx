@@ -35,6 +35,7 @@ export default async function BreedingPage() {
     }),
   ]);
 
+  const animalOpts = animals.map((a) => ({ id: a.id, label: `${a.name} (${a.tagId})` }));
   const dams = animals.filter((a) => a.sex === "FEMALE").map((a) => ({ id: a.id, label: `${a.name} (${a.tagId})` }));
   const sires = animals.filter((a) => a.sex === "MALE").map((a) => ({ id: a.id, label: `${a.name} (${a.tagId})` }));
 
@@ -81,7 +82,7 @@ export default async function BreedingPage() {
                     <div className="shrink-0 text-right">
                       <Badge tone={r.status === "CONFIRMED_PREGNANT" ? "brand" : "muted"}>{BREEDING_STATUS_LABEL[r.status]}</Badge>
                       {r.expectedDueDate && <div className="mt-1 text-[12.5px] text-muted">Due {fmtDate(r.expectedDueDate)} · {relativeDue(r.expectedDueDate)}</div>}
-                      {can.writeBreeding(user.role) && <div className="mt-1"><MarkDeliveredForm recordId={r.id} /></div>}
+                      {can.writeBreeding(user.role) && <div className="mt-1"><MarkDeliveredForm recordId={r.id} animals={animalOpts} /></div>}
                     </div>
                   </div>
                 </li>
