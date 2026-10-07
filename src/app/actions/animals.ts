@@ -114,6 +114,10 @@ export async function saveAnimalAction(_prev: State, fd: FormData): Promise<Stat
 
   revalidatePath("/animals");
   revalidatePath("/dashboard");
+  const motherId = str(fd, "motherId");
+  const fatherId = str(fd, "fatherId");
+  if (motherId) revalidatePath(`/animals/${motherId}`);
+  if (fatherId) revalidatePath(`/animals/${fatherId}`);
   redirect(`/animals/${newId}`);
 }
 

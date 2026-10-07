@@ -26,6 +26,7 @@ import { deletePhotoAction, setProfilePhotoAction, deleteAnimalAction } from "@/
 import { deleteHealthRecordAction } from "@/app/actions/health";
 import { deleteLogAction } from "@/app/actions/logs";
 import { deleteBreedingAction } from "@/app/actions/breeding";
+import MarkDeliveredForm from "@/components/MarkDeliveredForm";
 
 export const dynamic = "force-dynamic";
 
@@ -182,6 +183,8 @@ export default async function AnimalPage({
                 <span className="font-semibold">{animal.name}</span> is a
                 {age ? ` ${age.label} old` : ""}{animal.breed ? ` ${animal.breed}` : ""} {stage.toLowerCase()}
                 {animal.color ? `, ${animal.color.toLowerCase()} in colour` : ""}, {arrival}
+                {animal.mother ? `, mother ${animal.mother.name}` : ""}
+                {animal.father ? `, father ${animal.father.name}` : ""}
                 {animal.penOrLocation ? `, currently kept in ${animal.penOrLocation}` : ""}.
               </p>
               <dl className="mt-2 grid sm:grid-cols-2">
@@ -189,6 +192,8 @@ export default async function AnimalPage({
                 <InfoRow label="Horns" value={animal.hornStatus} />
                 <InfoRow label="Date of birth" value={animal.dateOfBirth ? `${fmtDate(animal.dateOfBirth)}${animal.ageIsEstimated ? " (est.)" : ""}` : null} />
                 <InfoRow label="Joined the farm" value={fmtDate(animal.dateJoined)} />
+                <InfoRow label="Mother" value={animal.mother ? <Link className="text-brand hover:underline" href={`/animals/${animal.mother.id}`}>{animal.mother.name} ({animal.mother.tagId})</Link> : null} />
+                <InfoRow label="Father" value={animal.father ? <Link className="text-brand hover:underline" href={`/animals/${animal.father.id}`}>{animal.father.name} ({animal.father.tagId})</Link> : null} />
                 {!bornOnFarm && <InfoRow label="Seller / source" value={animal.sourceName} />}
                 {showMoney && animal.purchasePrice && <InfoRow label="Purchase price" value={money(animal.purchasePrice, settings.currency)} />}
               </dl>
@@ -413,10 +418,15 @@ export default async function AnimalPage({
                         {b.notes && <p className="mt-1 text-[13.5px] text-muted">{b.notes}</p>}
                       </div>
                       {can.writeBreeding(user.role) && (
-                        <RecordActions label="Breeding record actions"><form action={deleteBreedingAction}>
-                          <input type="hidden" name="id" value={b.id} />
-                          <ConfirmSubmit className="record-delete-action" message="Delete this breeding record?">Delete breeding record</ConfirmSubmit>
-                        </form></RecordActions>
+                        <div className="flex items-center gap-2">
+                          {(b.status === "BRED" || b.status === "CONFIRMED_PREGNANT") && (
+                            <MarkDeliveredForm recordId={b.id} />
+                          )}
+                          <RecordActions label="Breeding record actions"><form action={deleteBreedingAction}>
+                            <input type="hidden" name="id" value={b.id} />
+                            <ConfirmSubmit className="record-delete-action" message="Delete this breeding record?">Delete breeding record</ConfirmSubmit>
+                          </form></RecordActions>
+                        </div>
                       )}
                     </div>
                   </li>

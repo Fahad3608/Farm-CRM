@@ -80,6 +80,41 @@ export async function saveBreedingAction(_prev: State, fd: FormData): Promise<St
   return { ok: "Breeding record saved." };
 }
 
+export async function markDeliveredAction(_prev: State, fd: FormData): Promise<State> {
+  const user = await requireUser();
+  if (!can.writeBreeding(user.role)) return { error: "Not permitted." };
+
+  const id = reqStr(fd, "id", "Breeding record");
+
+  try {
+    const record = await prisma.breedingRecord.findUnique({ where: { id } });
+    if (!record) return { error: "Record not found." };
+    if (record.status === "DELIVERED") return { error: "Already marked as delivered." };
+
+    const actualBirthDate = date(fd, "actualBirthDate") ?? new Date();
+    const offspringCount = int(fd, "offspringCount");
+    const offspringNotes = str(fd, "offspringNotes");
+
+    await prisma.breedingRecord.update({
+      where: { id },
+      data: { status: "DELIVERED", actualBirthDate, offspringCount, offspringNotes },
+    });
+
+    await prisma.animal.update({
+      where: { id: record.damId },
+      data: { reproStatus: "LACTATING", expectedDueDate: null },
+    });
+
+    revalidatePath("/breeding");
+    revalidatePath(`/animals/${record.damId}`);
+    revalidatePath("/dashboard");
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Could not update." };
+  }
+
+  return { ok: "Marked as delivered." };
+}
+
 export async function deleteBreedingAction(fd: FormData) {
   const user = await requireUser();
   if (!can.writeBreeding(user.role)) throw new Error("Not permitted.");
