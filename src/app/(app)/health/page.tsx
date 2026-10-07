@@ -5,10 +5,12 @@ import { can } from "@/lib/permissions";
 import { getSettings } from "@/lib/settings";
 import { Avatar, Badge, Card, Empty, PageHeader, Section } from "@/components/ui";
 import Disclosure from "@/components/Disclosure";
+import RecordActions from "@/components/RecordActions";
+import ConfirmSubmit from "@/components/ConfirmSubmit";
 import HealthRecordForm from "@/components/HealthRecordForm";
 import { HEALTH_TYPE, SPECIES, VACCINE_SUGGESTIONS } from "@/lib/domain";
 import { fmtDate, money, relativeDue } from "@/lib/format";
-import { markFollowUpDoneAction } from "@/app/actions/health";
+import { deleteHealthRecordAction, markFollowUpDoneAction } from "@/app/actions/health";
 
 export const dynamic = "force-dynamic";
 
@@ -98,11 +100,19 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
                         <div className="mt-1"><Badge tone={r.followUpDone ? "good" : "warn"}>Next due {fmtDate(r.nextDueDate)}{r.followUpDone ? " · done" : ""}</Badge></div>
                       )}
                     </div>
-                    {showMoney && (Number(r.medicineCost ?? 0) + Number(r.vetFee ?? 0) > 0) && (
-                      <span className="shrink-0 tabular-nums text-[14px] font-semibold">
-                        {money(Number(r.medicineCost ?? 0) + Number(r.vetFee ?? 0), settings.currency)}
-                      </span>
-                    )}
+                    <div className="flex shrink-0 items-center gap-2">
+                      {showMoney && (Number(r.medicineCost ?? 0) + Number(r.vetFee ?? 0) > 0) && (
+                        <span className="tabular-nums text-[14px] font-semibold">
+                          {money(Number(r.medicineCost ?? 0) + Number(r.vetFee ?? 0), settings.currency)}
+                        </span>
+                      )}
+                      {can.writeHealth(user.role) && (
+                        <RecordActions label="Health record actions"><form action={deleteHealthRecordAction}>
+                          <input type="hidden" name="id" value={r.id} />
+                          <ConfirmSubmit className="record-delete-action" message="Delete this health record? This cannot be undone.">Delete</ConfirmSubmit>
+                        </form></RecordActions>
+                      )}
+                    </div>
                   </div>
                 </li>
               ))}

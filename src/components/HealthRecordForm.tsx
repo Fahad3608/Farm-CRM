@@ -14,21 +14,37 @@ const TYPES = [
   ["DEATH_REPORT", "Death report"], ["OTHER", "Other"],
 ];
 
+const SPECIES_LABELS: Record<string, string> = {
+  COW: "Cow", BUFFALO: "Buffalo", CALF: "Calf", HEIFER: "Heifer",
+  GOAT: "Goat", SHEEP: "Sheep", HORSE: "Horse", POULTRY: "Poultry", OTHER: "Other",
+};
+
 export default function HealthRecordForm({
   animals, animalId, vaccineSuggestions = [], showCosts = true, onDone,
 }: { animals: AnimalOpt[]; animalId?: string; vaccineSuggestions?: string[]; showCosts?: boolean; onDone?: () => void }) {
   const [type, setType] = useState("VACCINATION");
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [speciesFilter, setSpeciesFilter] = useState("ALL");
   const today = new Date().toISOString().slice(0, 10);
   const isMedicine = ["VACCINATION", "INJECTION", "DEWORMING", "TREATMENT"].includes(type);
   const multiAnimal = !animalId && animals.length > 0;
 
+  const availableSpecies = useMemo(() => {
+    const set = new Set(animals.map((a) => a.species));
+    return Array.from(set).sort();
+  }, [animals]);
+
+  const speciesFiltered = useMemo(() => {
+    if (speciesFilter === "ALL") return animals;
+    return animals.filter((a) => a.species === speciesFilter);
+  }, [animals, speciesFilter]);
+
   const filtered = useMemo(() => {
-    if (!search) return animals;
+    if (!search) return speciesFiltered;
     const q = search.toLowerCase();
-    return animals.filter((a) => a.label.toLowerCase().includes(q));
-  }, [animals, search]);
+    return speciesFiltered.filter((a) => a.label.toLowerCase().includes(q));
+  }, [speciesFiltered, search]);
 
   function toggleAnimal(id: string) {
     setSelectedIds((prev) => {
@@ -40,8 +56,21 @@ export default function HealthRecordForm({
   }
 
   function toggleAll() {
-    if (selectedIds.size === animals.length) setSelectedIds(new Set());
-    else setSelectedIds(new Set(animals.map((a) => a.id)));
+    const visibleIds = filtered.map((a) => a.id);
+    const allSelected = visibleIds.every((id) => selectedIds.has(id));
+    if (allSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        visibleIds.forEach((id) => next.delete(id));
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        visibleIds.forEach((id) => next.add(id));
+        return next;
+      });
+    }
   }
 
   return (
@@ -61,10 +90,22 @@ export default function HealthRecordForm({
               {selectedIds.size > 0 && <span className="ml-1 normal-case tracking-normal text-ink">({selectedIds.size} selected)</span>}
             </span>
             <button type="button" onClick={toggleAll} className="text-[13px] text-brand hover:underline">
-              {selectedIds.size === animals.length ? "Deselect all" : "Select all"}
+              {filtered.length > 0 && filtered.every((a) => selectedIds.has(a.id)) ? "Deselect all" : "Select all"}
             </button>
           </div>
-          {animals.length > 8 && (
+          {availableSpecies.length > 1 && (
+            <select
+              value={speciesFilter}
+              onChange={(e) => setSpeciesFilter(e.target.value)}
+              className="input mb-2"
+            >
+              <option value="ALL">All types</option>
+              {availableSpecies.map((s) => (
+                <option key={s} value={s}>{SPECIES_LABELS[s] ?? s}</option>
+              ))}
+            </select>
+          )}
+          {speciesFiltered.length > 8 && (
             <input
               type="search" placeholder="Search animals…" value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -84,7 +125,7 @@ export default function HealthRecordForm({
               </label>
             ))}
             {filtered.length === 0 && (
-              <p className="px-2.5 py-2 text-[13px] text-muted">No animals match &ldquo;{search}&rdquo;</p>
+              <p className="px-2.5 py-2 text-[13px] text-muted">No animals match</p>
             )}
           </div>
         </div>
@@ -111,12 +152,6 @@ export default function HealthRecordForm({
         {isMedicine && (
           <Field label="Medicine / vaccine name"><input name="medicine" className="input" placeholder="Ivermectin 1%" /></Field>
         )}
-
-        <Field label="Symptoms observed" className="sm:col-span-2"><input name="symptoms" className="input" placeholder="Off feed, limping on right hind leg…" /></Field>
-        <Field label="Diagnosis"><input name="diagnosis" className="input" /></Field>
-        <Field label="Treatment given"><input name="treatment" className="input" /></Field>
-        <Field label="Temperature (°C)"><input name="temperatureC" inputMode="decimal" className="input" placeholder="38.5" /></Field>
-        <Field label="Weight (kg)" hint="Also saved to the growth chart"><input name="weightKg" inputMode="decimal" className="input" /></Field>
 
         <Field label="Next dose / follow-up date" hint="Shows up as a reminder on the dashboard">
           <input type="date" name="nextDueDate" className="input" />
