@@ -7,18 +7,15 @@ export const SPECIES: Record<Species, {
   /** Prefix used to auto-generate a Tag / Farm ID, e.g. "G" -> G001, G002... */
   prefix: string;
 }> = {
-  COW:     { label: "Cow",     emoji: "🐄", young: "Calf",   adultM: "Bull",     adultF: "Cow",     matureMonths: 18, gestationDays: 283, prefix: "C" },
-  BUFFALO: { label: "Buffalo", emoji: "🐃", young: "Calf",   adultM: "Bull",     adultF: "Buffalo", matureMonths: 24, gestationDays: 310, prefix: "B" },
-  // Calf and Heifer are tracked as their own species (not computed from age)
-  // so you can tag an animal this way yourself and re-tag it as Cow/Buffalo
-  // once it's grown. Bachra/Bachri are the Urdu terms for a male/female calf.
-  CALF:    { label: "Calf",    emoji: "🐮", young: "Calf", youngM: "Bachra", youngF: "Bachri", adultM: "Bachra", adultF: "Bachri", matureMonths: 999, gestationDays: 283, prefix: "CF" },
-  HEIFER:  { label: "Heifer",  emoji: "🐄", young: "Heifer", adultM: "Heifer",   adultF: "Heifer",  matureMonths: 999, gestationDays: 283, prefix: "HF" },
-  GOAT:    { label: "Goat",    emoji: "🐐", young: "Kid",    adultM: "Buck",     adultF: "Doe",     matureMonths: 9,  gestationDays: 150, prefix: "G" },
-  SHEEP:   { label: "Sheep",   emoji: "🐑", young: "Lamb",   adultM: "Ram",      adultF: "Ewe",     matureMonths: 9,  gestationDays: 147, prefix: "S" },
-  HORSE:   { label: "Horse",   emoji: "🐎", young: "Foal",   adultM: "Stallion", adultF: "Mare",    matureMonths: 36, gestationDays: 340, prefix: "H" },
-  POULTRY: { label: "Poultry", emoji: "🐓", young: "Chick",  adultM: "Rooster",  adultF: "Hen",     matureMonths: 5,  gestationDays: 21,  prefix: "P" },
-  OTHER:   { label: "Other",   emoji: "🐾", young: "Young",  adultM: "Male",     adultF: "Female",  matureMonths: 12, gestationDays: 0,   prefix: "O" },
+  COW:         { label: "Cow",         emoji: "🐄", young: "Calf",   adultM: "Bull",     adultF: "Cow",     matureMonths: 18, gestationDays: 283, prefix: "C" },
+  BULL:        { label: "Bull",        emoji: "🐂", young: "Calf",   adultM: "Bull",     adultF: "Bull",    matureMonths: 18, gestationDays: 283, prefix: "BL" },
+  BULL_CALF:   { label: "Bull Calf",   emoji: "🐮", young: "Bull Calf", adultM: "Bull Calf", adultF: "Bull Calf", matureMonths: 999, gestationDays: 283, prefix: "BC" },
+  HEIFER:      { label: "Heifer",      emoji: "🐄", young: "Heifer", adultM: "Heifer",   adultF: "Heifer",  matureMonths: 999, gestationDays: 283, prefix: "HF" },
+  HEIFER_CALF: { label: "Heifer Calf", emoji: "🐮", young: "Heifer Calf", adultM: "Heifer Calf", adultF: "Heifer Calf", matureMonths: 999, gestationDays: 283, prefix: "HC" },
+  GOAT:        { label: "Goat",        emoji: "🐐", young: "Kid",    adultM: "Buck",     adultF: "Doe",     matureMonths: 9,  gestationDays: 150, prefix: "G" },
+  GOAT_KID:    { label: "Baby Goat",   emoji: "🐐", young: "Baby Goat", adultM: "Baby Goat", adultF: "Baby Goat", matureMonths: 999, gestationDays: 150, prefix: "GK" },
+  SHEEP:       { label: "Sheep",       emoji: "🐑", young: "Lamb",   adultM: "Ram",      adultF: "Ewe",     matureMonths: 9,  gestationDays: 147, prefix: "S" },
+  HORSE:       { label: "Horse",       emoji: "🐎", young: "Foal",   adultM: "Stallion", adultF: "Mare",    matureMonths: 36, gestationDays: 340, prefix: "H" },
 };
 
 /** "Calf", "Kid", "Cow", "Buck" … computed from species + age + sex. */
@@ -159,8 +156,12 @@ export function categoryGroupOf(name: string, assigned: Map<string, string>): st
 /** Common vaccines by species — used as quick-pick suggestions for the vet. */
 export const VACCINE_SUGGESTIONS: Partial<Record<Species, string[]>> = {
   COW: ["FMD (Foot & Mouth)", "HS (Haemorrhagic Septicaemia)", "Black Quarter", "Brucella RB51", "Anthrax", "Lumpy Skin Disease"],
-  BUFFALO: ["FMD (Foot & Mouth)", "HS (Haemorrhagic Septicaemia)", "Black Quarter", "Anthrax"],
+  BULL: ["FMD (Foot & Mouth)", "HS (Haemorrhagic Septicaemia)", "Black Quarter", "Anthrax"],
+  BULL_CALF: ["FMD (Foot & Mouth)", "HS (Haemorrhagic Septicaemia)", "Black Quarter"],
+  HEIFER: ["FMD (Foot & Mouth)", "HS (Haemorrhagic Septicaemia)", "Black Quarter", "Brucella RB51"],
+  HEIFER_CALF: ["FMD (Foot & Mouth)", "HS (Haemorrhagic Septicaemia)", "Black Quarter"],
   GOAT: ["PPR (Peste des Petits Ruminants)", "Enterotoxaemia (ET)", "Goat Pox", "CCPP", "Tetanus", "Anthrax"],
+  GOAT_KID: ["PPR (Peste des Petits Ruminants)", "Enterotoxaemia (ET)", "Goat Pox"],
   SHEEP: ["PPR", "Enterotoxaemia (ET)", "Sheep Pox", "Blue Tongue", "Tetanus"],
 };
 

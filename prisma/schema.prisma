@@ -51,14 +51,14 @@ model User {
 
 enum Species {
   COW
-  BUFFALO
-  CALF    // Bachra (male) / Bachri (female) — tagged manually, not computed from age
+  BULL
+  BULL_CALF
   HEIFER
+  HEIFER_CALF
   GOAT
+  GOAT_KID
   SHEEP
   HORSE
-  POULTRY
-  OTHER
 }
 
 enum Sex {

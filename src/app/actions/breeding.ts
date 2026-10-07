@@ -105,8 +105,18 @@ export async function markDeliveredAction(_prev: State, fd: FormData): Promise<S
       data: { reproStatus: "LACTATING", expectedDueDate: null },
     });
 
+    const offspringIds = fd.getAll("offspringId").map(String).filter(Boolean);
+    for (const oid of offspringIds) {
+      await prisma.animal.update({
+        where: { id: oid },
+        data: { motherId: record.damId },
+      });
+      revalidatePath(`/animals/${oid}`);
+    }
+
     revalidatePath("/breeding");
     revalidatePath(`/animals/${record.damId}`);
+    revalidatePath("/animals");
     revalidatePath("/dashboard");
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Could not update." };

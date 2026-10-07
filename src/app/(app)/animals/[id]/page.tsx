@@ -420,7 +420,7 @@ export default async function AnimalPage({
                       {can.writeBreeding(user.role) && (
                         <div className="flex items-center gap-2">
                           {(b.status === "BRED" || b.status === "CONFIRMED_PREGNANT") && (
-                            <MarkDeliveredForm recordId={b.id} />
+                            <MarkDeliveredForm recordId={b.id} animals={allAnimals.map((a) => ({ id: a.id, label: `${a.name} (${a.tagId})` }))} />
                           )}
                           <RecordActions label="Breeding record actions"><form action={deleteBreedingAction}>
                             <input type="hidden" name="id" value={b.id} />
