@@ -102,14 +102,16 @@ export default async function AnimalPage({
   const dams = allAnimals.filter((a) => a.sex === "FEMALE").map(opt);
   const sires = allAnimals.filter((a) => a.sex === "MALE").map(opt);
 
-  const showMilk = animal.sex === "FEMALE";
+  const isGoat = animal.species === "GOAT" || animal.species === "GOAT_KID";
+  const showGrowth = animal.sex === "FEMALE" && !isGoat;
+  const showMilk = showGrowth;
   const tabs = showHistory
     ? [
         { key: "overview", label: "Overview" },
         { key: "health", label: "Health", count: animal.healthRecords.length },
         { key: "feed", label: "Feed", count: animal.feedLogs.length },
         ...(can.viewBreeding(user.role) && animal.sex === "FEMALE" ? [{ key: "breeding", label: "Breeding", count: animal.breedingAsDam.length }] : []),
-        { key: "growth", label: showMilk ? "Growth & milk" : "Growth", count: animal.weights.length + (showMilk ? animal.milkRecords.length : 0) },
+        ...(showGrowth ? [{ key: "growth", label: "Growth & milk", count: animal.weights.length + animal.milkRecords.length }] : []),
         { key: "photos", label: "Photos", count: animal.photos.length },
         ...(showMoney ? [{ key: "costs", label: "Costs" }] : []),
       ]
@@ -253,9 +255,11 @@ export default async function AnimalPage({
             )}
 
           {can.manageAnimals(user.role) && animal.status === "ACTIVE" && (
-            <Section title="Record a sale, death or transfer">
-              <div className="p-4"><SaleForm animalId={animal.id} currency={settings.currency} /></div>
-            </Section>
+            <div className="lg:col-span-2">
+              <Disclosure label="Record a sale, death or transfer">
+                <Card className="p-4"><SaleForm animalId={animal.id} currency={settings.currency} /></Card>
+              </Disclosure>
+            </div>
           )}
           </div>
         );
@@ -437,7 +441,7 @@ export default async function AnimalPage({
         </div>
       )}
 
-      {tab === "growth" && (
+      {tab === "growth" && showGrowth && (
         <div className={`grid items-start gap-4 ${showMilk ? "lg:grid-cols-2" : ""}`}>
           <Section title="Weight history" subtitle={animal.weights[0] ? `Latest: ${num(animal.weights[0].weightKg, 1)} kg` : undefined}>
             <div className="border-b border-line p-4"><AddWeightForm animalId={animal.id} /></div>
