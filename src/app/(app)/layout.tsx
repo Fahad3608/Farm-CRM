@@ -41,9 +41,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const allNav = [...mainNav, ...spendingNav, ...bottomNav];
 
-  const mobileNav = can.viewFinance(user.role)
-    ? ["/dashboard", "/animals", "/finance", "/customers", "/health"].flatMap((href) => allNav.filter((n) => n.href === href))
-    : allNav.filter((n) => n.href !== "/settings").slice(0, 5);
+  const mobileNav = mainNav.slice(0, 5);
 
   return (
     <div className="min-h-dvh md:flex">
