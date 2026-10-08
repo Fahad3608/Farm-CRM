@@ -11,6 +11,7 @@ import Disclosure from "@/components/Disclosure";
 import RecordActions from "@/components/RecordActions";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import PhotoUploader from "@/components/PhotoUploader";
+import PhotoLightbox from "@/components/PhotoLightbox";
 import HealthRecordForm from "@/components/HealthRecordForm";
 import BreedingForm from "@/components/BreedingForm";
 import FeedLogForm from "@/components/FeedLogForm";
@@ -22,7 +23,7 @@ import {
   REPRO_LABEL, SPECIES, STATUS_LABEL, VACCINE_SUGGESTIONS, lifeStage,
 } from "@/lib/domain";
 import { ageFrom, fmtDate, money, num, relativeDue } from "@/lib/format";
-import { deletePhotoAction, setProfilePhotoAction, deleteAnimalAction } from "@/app/actions/animals";
+import { deleteAnimalAction } from "@/app/actions/animals";
 import { deleteHealthRecordAction } from "@/app/actions/health";
 import { deleteLogAction } from "@/app/actions/logs";
 import { deleteBreedingAction } from "@/app/actions/breeding";
@@ -495,39 +496,14 @@ export default async function AnimalPage({
           </Section>
 
           {animal.photos.length === 0 ? (
-            <Card><Empty icon="📷" title="No photos yet" hint="The first photo you upload becomes the profile picture." /></Card>
+            <Card><Empty icon="📷" title="No photos yet" hint="Tap Face photo for a profile picture, or Body photo for full-body shots and markings." /></Card>
           ) : (
-            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {animal.photos.map((p) => (
-                <li key={p.id} className="card overflow-hidden">
-                  <a href={`/api/photos/${p.id}`} target="_blank" rel="noreferrer">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={`/api/photos/${p.id}?v=thumb`} alt={p.caption ?? animal.name} className="aspect-square w-full object-cover" />
-                  </a>
-                  <div className="flex items-center justify-between gap-2 px-2.5 py-2">
-                    <span className="truncate text-[12.5px] text-muted">{p.caption ?? fmtDate(p.createdAt)}</span>
-                    <div className="flex shrink-0 items-center gap-1">
-                      {animal.profilePhotoId === p.id ? (
-                        <Badge tone="brand">Profile</Badge>
-                      ) : (
-                        <form action={setProfilePhotoAction}>
-                          <input type="hidden" name="animalId" value={animal.id} />
-                          <input type="hidden" name="photoId" value={p.id} />
-                          <button className="text-[12px] text-brand hover:underline">Set profile</button>
-                        </form>
-                      )}
-                      {can.manageAnimals(user.role) && (
-                        <RecordActions label="Photo actions"><form action={deletePhotoAction}>
-                          <input type="hidden" name="animalId" value={animal.id} />
-                          <input type="hidden" name="photoId" value={p.id} />
-                          <ConfirmSubmit className="record-delete-action" message="Delete this photo?">Delete photo</ConfirmSubmit>
-                        </form></RecordActions>
-                      )}
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <PhotoLightbox
+              photos={animal.photos.map((p) => ({ id: p.id, caption: p.caption, createdAt: fmtDate(p.createdAt) }))}
+              animalId={animal.id}
+              profilePhotoId={animal.profilePhotoId}
+              canManage={can.manageAnimals(user.role)}
+            />
           )}
         </div>
       )}
