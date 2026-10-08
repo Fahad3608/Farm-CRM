@@ -13,7 +13,7 @@ import { BarList, IncomeExpenseChart } from "@/components/charts";
 import { categorizeExpenseAction, bulkEditSelectedTransactionsAction, deleteFilteredTransactionsAction, deleteSelectedTransactionsAction, deleteTransactionAction, editFilteredTransactionsAction, linkTransactionAnimalAction, markNotAnimalSpecificAction, saveBulkTransactionsAction, saveTransactionAction } from "@/app/actions/finance";
 
 import MonthlyExpenses from "@/components/MonthlyExpenses";
-import { monthlyExpenses, EXPENSE_GROUP_LABELS } from "@/lib/monthlyExpenses";
+import { monthlyExpenses } from "@/lib/monthlyExpenses";
 import LedgerTable, { type LedgerRow } from "@/components/LedgerTable";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, NO_PAYER, categoryGroupOf } from "@/lib/domain";
 import { fmtDate, money } from "@/lib/format";
@@ -150,16 +150,6 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
     entry.categories.push(c.category);
     groupTotals.set(g, entry);
   }
-  const expenseGroups = [...groupTotals.entries()]
-    .map(([label, v]) => {
-      const q = toParams(sp);
-      q.delete("category");
-      q.delete("page");
-      q.set("type", "EXPENSE");
-      v.categories.forEach((c) => q.append("category", c));
-      return { label: EXPENSE_GROUP_LABELS[label] ?? label, value: v.total, display: money(v.total, settings.currency), href: `/finance?${q.toString()}` };
-    })
-    .sort((a, b) => b.value - a.value);
 
   // Every active animal, not just the ones with a cost already logged this
   // period — so an animal with nothing spent on it yet still shows up, at
@@ -413,27 +403,13 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
           <IncomeExpenseChart data={chartBuckets} currency={settings.currency} />
         </Section>
 
-        <Section title="Expenses by group" subtitle="Click a group to see and edit just those categories · set groups in Settings" className="lg:col-span-2">
-          <BarList items={expenseGroups} accent="b" emptyText="No expenses in this period." />
-        </Section>
-
-        <Section title="Expenses by category">
+        <Section title="Expenses by category" className="lg:col-span-2">
           <BarList
             items={byCategory.filter((c) => c.type === "EXPENSE")
               .map((c) => ({ label: c.category, value: Number(c._sum.amount ?? 0), display: money(c._sum.amount, settings.currency) }))
               .sort((a, b) => b.value - a.value)}
             accent="b"
             emptyText="No expenses in this period."
-          />
-        </Section>
-
-        <Section title="Income by category">
-          <BarList
-            items={byCategory.filter((c) => c.type === "INCOME")
-              .map((c) => ({ label: c.category, value: Number(c._sum.amount ?? 0), display: money(c._sum.amount, settings.currency) }))
-              .sort((a, b) => b.value - a.value)}
-            accent="a"
-            emptyText="No income in this period."
           />
         </Section>
 
