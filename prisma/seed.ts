@@ -256,7 +256,7 @@ async function main() {
     { date: "2026-09-15", amount: 22500,  desc: "Remaining advance to Arham - 100k completed", category: "Other Expense", vendor: "Arham", ref: "Paid by Harris" },
     { date: "2026-09-16", amount: 600,    desc: "Javed",                                  category: "Labour / Wages",     vendor: "Javed", ref: "Paid by Harris" },
     { date: "2026-09-16", amount: 7800,   desc: "Camera sim pkg 90 days - both cameras",  category: "Utilities",          ref: "Paid by Fahad" },
-    { date: "2026-09-16", amount: 3000,   desc: "Dr Abdul haq - Black bachri insemination", category: "Breeding / AI",   vendor: "Dr Abdul Haq", ref: "Paid by Harris" },
+    { date: "2026-09-16", amount: 3000,   desc: "Dr Abdul haq - Black heifer insemination", category: "Breeding / AI",   vendor: "Dr Abdul Haq", ref: "Paid by Harris" },
     { date: "2026-09-17", amount: 20000,  desc: "Uncle - Farm feed",                      category: "Feed",               vendor: "Uncle", ref: "Paid by Harris" },
     { date: "2026-09-18", amount: 500,    desc: "Javed",                                  category: "Other Expense",      vendor: "Javed", ref: "Paid by Harris" },
   ];
@@ -292,14 +292,14 @@ async function main() {
 
   const batchAnimals: { tagId: string; name: string; species: Species; sex: "MALE" | "FEMALE"; breed?: string; color?: string; price: number; dateJoined: Date; batch?: string }[] = [
     // Batch 1 — June 13th
-    { tagId: "C-005", name: "Jodi 1",       species: "CALF", sex: "FEMALE", price: 110000, dateJoined: new Date("2026-06-13"), batch: "batch1" },
-    { tagId: "C-006", name: "Jodi 2",       species: "CALF", sex: "FEMALE", price: 110000, dateJoined: new Date("2026-06-13"), batch: "batch1" },
-    { tagId: "C-007", name: "Blacky",       species: "CALF", sex: "FEMALE", color: "Black", price: 111000, dateJoined: new Date("2026-06-13"), batch: "batch1" },
-    { tagId: "C-008", name: "White Bachri", species: "CALF", sex: "FEMALE", color: "White", price: 115000, dateJoined: new Date("2026-06-13"), batch: "batch1" },
-    // Batch 2 — June 20th (bachris)
-    { tagId: "C-009", name: "Black Bachri",  species: "CALF", sex: "FEMALE", color: "Black", price: 127000, dateJoined: new Date("2026-06-20"), batch: "batch2" },
-    { tagId: "C-010", name: "White Bachri 2", species: "CALF", sex: "FEMALE", color: "White", price: 110000, dateJoined: new Date("2026-06-20"), batch: "batch2" },
-    { tagId: "C-011", name: "Jersey Bachri", species: "CALF", sex: "FEMALE", breed: "Jersey", price: 105000, dateJoined: new Date("2026-06-20"), batch: "batch2" },
+    { tagId: "C-005", name: "Jodi 1",       species: "HEIFER_CALF", sex: "FEMALE", price: 110000, dateJoined: new Date("2026-06-13"), batch: "batch1" },
+    { tagId: "C-006", name: "Jodi 2",       species: "HEIFER_CALF", sex: "FEMALE", price: 110000, dateJoined: new Date("2026-06-13"), batch: "batch1" },
+    { tagId: "C-007", name: "Blacky",       species: "HEIFER_CALF", sex: "FEMALE", color: "Black", price: 111000, dateJoined: new Date("2026-06-13"), batch: "batch1" },
+    { tagId: "C-008", name: "White Heifer", species: "HEIFER_CALF", sex: "FEMALE", color: "White", price: 115000, dateJoined: new Date("2026-06-13"), batch: "batch1" },
+    // Batch 2 — June 20th (heifer calves)
+    { tagId: "C-009", name: "Black Heifer",  species: "HEIFER_CALF", sex: "FEMALE", color: "Black", price: 127000, dateJoined: new Date("2026-06-20"), batch: "batch2" },
+    { tagId: "C-010", name: "White Heifer 2", species: "HEIFER_CALF", sex: "FEMALE", color: "White", price: 110000, dateJoined: new Date("2026-06-20"), batch: "batch2" },
+    { tagId: "C-011", name: "Jersey Heifer", species: "HEIFER_CALF", sex: "FEMALE", breed: "Jersey", price: 105000, dateJoined: new Date("2026-06-20"), batch: "batch2" },
     // Batch 3 — June 20th (goats)
     { tagId: "G-005", name: "Goat 1",       species: "GOAT", sex: "FEMALE", price: 40000, dateJoined: new Date("2026-06-20"), batch: "batch3" },
     { tagId: "G-006", name: "Goat 2",       species: "GOAT", sex: "FEMALE", price: 40000, dateJoined: new Date("2026-06-20"), batch: "batch3" },
@@ -357,7 +357,7 @@ async function main() {
     { description: "Karaya loader janwar", amount: 2500 },
   ]);
 
-  await seedBatch("June 20th — Mandi Batch 2 (Bachris)", new Date("2026-06-20"), batchAnimalIds.batch2, [
+  await seedBatch("June 20th — Mandi Batch 2 (Heifer Calves)", new Date("2026-06-20"), batchAnimalIds.batch2, [
     { description: "Parchi mandi", amount: 6000 },
     { description: "Baba helper", amount: 2000 },
     { description: "Karaya loader", amount: 2500 },
