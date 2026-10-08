@@ -9,7 +9,7 @@ import Disclosure from "@/components/Disclosure";
 import ActionForm, { SubmitButton } from "@/components/ActionForm";
 import RecordActions from "@/components/RecordActions";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
-import { BarList, IncomeExpenseChart } from "@/components/charts";
+import { BarList } from "@/components/charts";
 import { categorizeExpenseAction, bulkEditSelectedTransactionsAction, deleteFilteredTransactionsAction, deleteSelectedTransactionsAction, deleteTransactionAction, editFilteredTransactionsAction, linkTransactionAnimalAction, markNotAnimalSpecificAction, saveBulkTransactionsAction, saveTransactionAction } from "@/app/actions/finance";
 
 import MonthlyExpenses from "@/components/MonthlyExpenses";
@@ -129,7 +129,6 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
   const investedTotal = investmentRows.reduce((sum, r) => sum + r.total, 0);
   const unassignedInvestment = investmentRows.find((r) => r.payer === null);
 
-  const income = Number(totals.find((t) => t.type === "INCOME")?._sum.amount ?? 0);
   const expense = Number(totals.find((t) => t.type === "EXPENSE")?._sum.amount ?? 0);
 
   // Each expense category rolls up into a group (set in Settings, or a
@@ -161,18 +160,6 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
 
   const allInRange = await prisma.transaction.findMany({ where, select: { date: true, type: true, amount: true, category: true } });
   const months = monthlyExpenses(allInRange, assignedGroups);
-  const buckets = new Map<string, { month: string; income: number; expense: number }>();
-  for (const t of allInRange) {
-    const key = t.date.toISOString().slice(0, 7);
-    const b = buckets.get(key) ?? {
-      month: t.date.toLocaleDateString(undefined, { month: "short", year: "2-digit", timeZone: "UTC" }),
-      income: 0, expense: 0,
-    };
-    b[t.type === "INCOME" ? "income" : "expense"] += Number(t.amount);
-    buckets.set(key, b);
-  }
-  const chartBuckets = [...buckets].sort(([a], [b]) => a.localeCompare(b)).slice(-12).map(([, b]) => b);
-  const chartSubtitle = "Matching entries · up to 12 months with activity";
 
   const payerHref = (name: string) => {
     const q = toParams(sp);
@@ -272,10 +259,8 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
         <button className="btn-ghost">Apply</button>
       </form>
 
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile label="Income" value={money(income, settings.currency)} tone="good" />
-        <StatTile label="Expenses" value={money(expense, settings.currency)} tone="bad" />
-        <StatTile label="Income less expenses" hint="Recorded entries, not a profit calculation" value={money(income - expense, settings.currency)} tone={income - expense >= 0 ? "good" : "bad"} />
+      <div className="mb-4 grid grid-cols-2 gap-3">
+        <StatTile label="Total expenses" value={money(expense, settings.currency)} tone="bad" />
         <StatTile label="Operational costs" value={money(groupTotals.get("Operational")?.total ?? 0, settings.currency)} hint="Day-to-day portion of expenses" />
       </div>
 
@@ -399,14 +384,17 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       </div>
 
       <div className="grid items-start gap-4 lg:grid-cols-2">
-        <Section title="Income vs expenses" subtitle={chartSubtitle} className="lg:col-span-2">
-          <IncomeExpenseChart data={chartBuckets} currency={settings.currency} />
-        </Section>
-
         <Section title="Expenses by category" className="lg:col-span-2">
           <BarList
             items={byCategory.filter((c) => c.type === "EXPENSE")
-              .map((c) => ({ label: c.category, value: Number(c._sum.amount ?? 0), display: money(c._sum.amount, settings.currency) }))
+              .map((c) => {
+                const q = toParams(sp);
+                q.delete("category");
+                q.delete("page");
+                q.set("type", "EXPENSE");
+                q.append("category", c.category);
+                return { label: c.category, value: Number(c._sum.amount ?? 0), display: money(c._sum.amount, settings.currency), href: `/finance?${q.toString()}#ledger` };
+              })
               .sort((a, b) => b.value - a.value)}
             accent="b"
             emptyText="No expenses in this period."
