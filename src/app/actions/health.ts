@@ -7,7 +7,7 @@ import { can } from "@/lib/permissions";
 import { bool, date, dec, enumOf, reqDate, reqStr, str } from "@/lib/form";
 import type { HealthRecordType } from "@prisma/client";
 
-const TYPES = ["VACCINATION", "INJECTION", "DEWORMING", "TREATMENT", "CHECKUP", "SURGERY", "LAB_TEST", "HOOF_CARE", "PREGNANCY_CHECK", "DEATH_REPORT", "OTHER"] as const;
+const TYPES = ["VACCINATION", "INJECTION", "DEWORMING", "TREATMENT", "CHECKUP", "SURGERY", "LAB_TEST", "HOOF_CARE", "PREGNANCY_CHECK", "INSEMINATION", "DEATH_REPORT", "OTHER"] as const;
 
 type State = { error?: string; ok?: string } | undefined;
 

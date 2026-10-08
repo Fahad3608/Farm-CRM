@@ -11,7 +11,7 @@ const TYPES = [
   ["VACCINATION", "Vaccination"], ["INJECTION", "Injection"], ["DEWORMING", "Deworming"],
   ["TREATMENT", "Treatment / illness"], ["CHECKUP", "Routine check-up"], ["PREGNANCY_CHECK", "Pregnancy check"],
   ["SURGERY", "Surgery"], ["LAB_TEST", "Lab test"], ["HOOF_CARE", "Hoof care"],
-  ["DEATH_REPORT", "Death report"], ["OTHER", "Other"],
+  ["INSEMINATION", "Insemination"], ["DEATH_REPORT", "Death report"], ["OTHER", "Other"],
 ];
 
 const SPECIES_LABELS: Record<string, string> = {
