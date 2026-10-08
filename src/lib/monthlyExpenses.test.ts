@@ -9,7 +9,7 @@ test("monthly categories reconcile without rounding drift and exclude income", (
     entry("2026-09-01T12:00:00Z", "Feeding Cost", "0.10"),
     entry("2026-09-02T12:00:00Z", "Feeding Cost", "0.20"),
     entry("2026-09-02T12:00:00Z", "Equipment", "50.00"),
-    entry("2026-09-02T12:00:00Z", "Farm animal", "100.00"),
+    entry("2026-09-02T12:00:00Z", "Animal Purchase", "100.00"),
     entry("2026-09-02T12:00:00Z", "Unclear", "7.00"),
     entry("2026-09-02T12:00:00Z", "Milk Sales", "900", "INCOME"),
   ], new Map());

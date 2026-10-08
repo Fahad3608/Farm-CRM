@@ -186,6 +186,29 @@ export async function backfillPurchaseTransactionsAction(_prev: State, _fd: Form
   };
 }
 
+export async function deduplicatePurchaseTransactionsAction(_prev: State, _fd: FormData): Promise<State> {
+  const user = await requireUser();
+  if (!can.editFinance(user.role)) return { error: "Not permitted." };
+
+  const dupes = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT t1.id FROM "Transaction" t1
+    JOIN "Transaction" t2 ON t1."animalId" = t2."animalId"
+      AND t1.category = 'Animal Purchase' AND t2.category = 'Animal Purchase'
+      AND t1.type = 'EXPENSE' AND t2.type = 'EXPENSE'
+      AND t1.id <> t2.id AND t1."createdAt" < t2."createdAt"
+    WHERE t1."animalId" IS NOT NULL`;
+
+  const ids = [...new Set(dupes.map((d) => d.id))];
+  if (ids.length === 0) {
+    return { ok: "No duplicates found." };
+  }
+
+  await prisma.transaction.deleteMany({ where: { id: { in: ids } } });
+  revalidatePath("/finance");
+  revalidatePath("/dashboard");
+  return { ok: `Removed ${ids.length} duplicate purchase entr${ids.length === 1 ? "y" : "ies"}.` };
+}
+
 export async function recordSaleAction(_prev: State, fd: FormData): Promise<State> {
   const user = await requireUser();
   if (!can.manageAnimals(user.role)) return { error: "Not permitted." };
@@ -233,8 +256,8 @@ export async function recordSaleAction(_prev: State, fd: FormData): Promise<Stat
  * purchase price survived with nothing to say who it was for. Money that left
  * the farm should stay in the books either way, so every transaction touching
  * this animal is detached and stamped with its name before the delete runs.
- * The ledger total is unchanged; the entries just read "Gauri (COW-001)
- * (removed)" instead of linking to a profile that no longer exists.
+ * The ledger total is unchanged; the entries just read “Gauri (COW-001)
+ * (removed)” instead of linking to a profile that no longer exists.
  */
 export async function deleteAnimalAction(fd: FormData) {
   const user = await requireUser();
