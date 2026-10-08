@@ -51,6 +51,7 @@ export const HEALTH_TYPE: Record<HealthRecordType, { label: string; tone: "brand
   LAB_TEST:        { label: "Lab test", tone: "muted" },
   HOOF_CARE:       { label: "Hoof care", tone: "muted" },
   PREGNANCY_CHECK: { label: "Pregnancy check", tone: "brand" },
+  INSEMINATION:    { label: "Insemination", tone: "brand" },
   DEATH_REPORT:    { label: "Death report", tone: "bad" },
   OTHER:           { label: "Other", tone: "muted" },
 };
