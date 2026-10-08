@@ -317,7 +317,7 @@ export async function uploadPhotoAction(_prev: State, fd: FormData): Promise<Sta
   try {
     const f = parse(full);
     const t = parse(thumb);
-    if (f.buffer.byteLength > 6_000_000) return { error: "That image is too large — try a smaller photo." };
+    if (f.buffer.byteLength > 10_000_000) return { error: "That image is too large — try a smaller photo." };
 
     const photo = await prisma.photo.create({
       data: {
