@@ -11,7 +11,7 @@ import Disclosure from "@/components/Disclosure";
 import { deleteUserAction, saveFarmSettingsAction, saveUserAction } from "@/app/actions/settings";
 import { createCategoryAction, deleteCategoryAction, setCategoryGroupAction } from "@/app/actions/categories";
 import { createPayerAction, deletePayerAction, renamePayerAction } from "@/app/actions/payers";
-import { backfillPurchaseTransactionsAction } from "@/app/actions/animals";
+import { backfillPurchaseTransactionsAction, deduplicatePurchaseTransactionsAction } from "@/app/actions/animals";
 import { backfillBatchCostTransactionsAction } from "@/app/actions/batches";
 import { fmtDate, money } from "@/lib/format";
 import { CATEGORY_GROUPS, EXPENSE_CATEGORIES, categoryGroupOf } from "@/lib/domain";
@@ -209,6 +209,9 @@ export default async function SettingsPage() {
               </ActionForm>
               <ActionForm action={backfillBatchCostTransactionsAction}>
                 <SubmitButton className="btn-ghost">Sync batch costs into Finance</SubmitButton>
+              </ActionForm>
+              <ActionForm action={deduplicatePurchaseTransactionsAction}>
+                <SubmitButton className="btn-ghost">Remove duplicate purchase entries</SubmitButton>
               </ActionForm>
             </div>
           </Section>

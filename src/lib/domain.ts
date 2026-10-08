@@ -101,7 +101,7 @@ export const ROUTES = ["IM (intramuscular)", "SC (subcutaneous)", "IV (intraveno
 export const EXPENSE_CATEGORIES = [
   "Feeding Cost", "Direct Purchase - Feed", "Vet Cost", "Worker Salary",
   "Labour Cost", "Equipment", "Farm Rent", "Operational Cost", "Construction",
-  "Farm animal", "Loan - Javed", "Tenent Advance", "mics",
+  "Animal Purchase", "Loan - Javed", "Tenent Advance", "mics",
   "Veterinary", "Medicine", "Labour / Wages",
   "Transport", "Utilities", "Caretaker Salary", "Shed / Maintenance",
   "Breeding / AI", "Batch Cost", "Insurance", "Other Expense",
@@ -132,7 +132,7 @@ export const DEFAULT_CATEGORY_GROUP: Record<string, CategoryGroup> = {
   "Farm Rent": "Operational",
   "Construction": "Capital & Construction",
   "Equipment": "Capital & Construction",
-  "Farm animal": "Animal Purchases",
+  "Animal Purchase": "Animal Purchases",
   "Loan - Javed": "Other",
   "Tenent Advance": "Other",
   "mics": "Other",
