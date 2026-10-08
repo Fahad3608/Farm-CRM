@@ -112,7 +112,7 @@ export default function PhotoUploader({ animalId, isFirst }: { animalId: string;
         <input
           ref={fileRef}
           type="file"
-          accept="image/*"
+          accept="image/*,.heic,.heif"
           className="sr-only"
           onChange={onFileChange}
         />
