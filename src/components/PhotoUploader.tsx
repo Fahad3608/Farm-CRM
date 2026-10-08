@@ -113,7 +113,6 @@ export default function PhotoUploader({ animalId, isFirst }: { animalId: string;
           ref={fileRef}
           type="file"
           accept="image/*"
-          capture="environment"
           className="sr-only"
           onChange={onFileChange}
         />
