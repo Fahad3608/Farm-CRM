@@ -62,7 +62,7 @@ export default async function MilkPage() {
       include: { animal: { select: { id: true, name: true, tagId: true, species: true } } },
     }),
     prisma.animal.findMany({
-      where: { status: "ACTIVE", sex: "FEMALE", species: { in: ["COW", "BUFFALO", "GOAT", "SHEEP"] } },
+      where: { status: "ACTIVE", sex: "FEMALE", species: { in: ["COW", "GOAT", "SHEEP"] } },
       select: { id: true, name: true, tagId: true, species: true, profilePhotoId: true, reproStatus: true },
       orderBy: { tagId: "asc" },
     }),
