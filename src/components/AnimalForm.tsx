@@ -20,8 +20,10 @@ export type AnimalFormValues = {
 };
 
 const SPECIES = [
-  ["COW", "Cow 🐄"], ["BUFFALO", "Buffalo 🐃"], ["CALF", "Calf (Bachra/Bachri) 🐮"], ["HEIFER", "Heifer 🐄"],
-  ["GOAT", "Goat 🐐"], ["SHEEP", "Sheep 🐑"], ["HORSE", "Horse 🐎"], ["POULTRY", "Poultry 🐓"], ["OTHER", "Other 🐾"],
+  ["COW", "Cow 🐄"], ["BULL", "Bull 🐂"], ["BULL_CALF", "Bull Calf 🐮"],
+  ["HEIFER", "Heifer 🐄"], ["HEIFER_CALF", "Heifer Calf 🐮"],
+  ["GOAT", "Goat 🐐"], ["GOAT_KID", "Baby Goat 🐐"],
+  ["SHEEP", "Sheep 🐑"], ["HORSE", "Horse 🐎"],
 ];
 const STATUS = [["ACTIVE", "On farm"], ["SOLD", "Sold"], ["DECEASED", "Deceased"], ["CULLED", "Culled"], ["LOANED_OUT", "Loaned out"]];
 const REPRO = [["NOT_APPLICABLE", "Not applicable"], ["OPEN", "Open (not pregnant)"], ["BRED", "Bred — awaiting confirmation"],
@@ -70,9 +72,7 @@ export default function AnimalForm({
         <Field label="Species *">
           <select name="species" value={species} onChange={(e) => handleSpeciesChange(e.target.value)} className="input">
             {SPECIES.map(([v, l]) => (
-              <option key={v} value={v}>
-                {v === "CALF" ? `Calf (${sex === "MALE" ? "Bachra" : "Bachri"}) 🐮` : l}
-              </option>
+              <option key={v} value={v}>{l}</option>
             ))}
           </select>
         </Field>
@@ -119,28 +119,8 @@ export default function AnimalForm({
             {ACQ.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </Field>
-        {acquisition !== "BORN_ON_FARM" && (
-          <Field label="Seller / source"><input name="sourceName" defaultValue={values.sourceName ?? ""} className="input" placeholder="Market / previous owner" /></Field>
-        )}
-        {showPrices && acquisition !== "BORN_ON_FARM" && (
-          <Field label={`Purchase price (${currency})`} hint="Added to your expenses automatically">
-            <input name="purchasePrice" inputMode="decimal" defaultValue={values.purchasePrice ?? ""} className="input" placeholder="0" />
-          </Field>
-        )}
-      </Group>
-
-      <details className="card p-4" open={Boolean(values.hornStatus || values.motherId || values.fatherId)}>
-        <summary className="cursor-pointer list-none text-[13px] font-semibold uppercase tracking-wide text-muted">
-          More details (optional) — features & parentage
-        </summary>
-
-        <div className="mt-4 flex flex-col gap-4">
-          <Group title="Features">
-            <Field label="Horns"><input name="hornStatus" defaultValue={values.hornStatus ?? ""} className="input" placeholder="Horned / polled / dehorned" list="horn-opts" /></Field>
-            <datalist id="horn-opts"><option value="Horned" /><option value="Polled (naturally hornless)" /><option value="Dehorned" /></datalist>
-          </Group>
-
-          <Group title="Parentage">
+        {acquisition === "BORN_ON_FARM" && (
+          <>
             <Field label="Mother (dam)">
               <select name="motherId" defaultValue={values.motherId ?? ""} className="input">
                 <option value="">— Unknown / not on farm —</option>
@@ -153,7 +133,45 @@ export default function AnimalForm({
                 {fathers.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
               </select>
             </Field>
+          </>
+        )}
+        {acquisition !== "BORN_ON_FARM" && (
+          <Field label="Seller / source"><input name="sourceName" defaultValue={values.sourceName ?? ""} className="input" placeholder="Market / previous owner" /></Field>
+        )}
+        {showPrices && acquisition !== "BORN_ON_FARM" && (
+          <Field label={`Purchase price (${currency})`} hint="Added to your expenses automatically">
+            <input name="purchasePrice" inputMode="decimal" defaultValue={values.purchasePrice ?? ""} className="input" placeholder="0" />
+          </Field>
+        )}
+      </Group>
+
+      <details className="card p-4" open={Boolean(values.hornStatus || (acquisition !== "BORN_ON_FARM" && (values.motherId || values.fatherId)))}>
+        <summary className="cursor-pointer list-none text-[13px] font-semibold uppercase tracking-wide text-muted">
+          More details (optional) — features{acquisition !== "BORN_ON_FARM" ? " & parentage" : ""}
+        </summary>
+
+        <div className="mt-4 flex flex-col gap-4">
+          <Group title="Features">
+            <Field label="Horns"><input name="hornStatus" defaultValue={values.hornStatus ?? ""} className="input" placeholder="Horned / polled / dehorned" list="horn-opts" /></Field>
+            <datalist id="horn-opts"><option value="Horned" /><option value="Polled (naturally hornless)" /><option value="Dehorned" /></datalist>
           </Group>
+
+          {acquisition !== "BORN_ON_FARM" && (
+            <Group title="Parentage">
+              <Field label="Mother (dam)">
+                <select name="motherId" defaultValue={values.motherId ?? ""} className="input">
+                  <option value="">— Unknown / not on farm —</option>
+                  {mothers.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+                </select>
+              </Field>
+              <Field label="Father (sire)">
+                <select name="fatherId" defaultValue={values.fatherId ?? ""} className="input">
+                  <option value="">— Unknown / not on farm —</option>
+                  {fathers.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+                </select>
+              </Field>
+            </Group>
+          )}
         </div>
       </details>
 

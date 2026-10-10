@@ -14,7 +14,7 @@ export default function Tabs({
               href={`${base}?tab=${t.key}`}
               aria-current={active ? "page" : undefined}
               className={`-mb-px border-b-2 px-3 py-2.5 text-[14px] font-medium transition-colors ${
-                active ? "border-brand text-brand" : "border-transparent text-muted hover:text-ink"
+                active ? "rounded-t-lg border-brand bg-brand/10 text-brand" : "border-transparent text-muted hover:text-ink"
               }`}
             >
               {t.label}

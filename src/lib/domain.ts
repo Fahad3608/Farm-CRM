@@ -7,18 +7,15 @@ export const SPECIES: Record<Species, {
   /** Prefix used to auto-generate a Tag / Farm ID, e.g. "G" -> G001, G002... */
   prefix: string;
 }> = {
-  COW:     { label: "Cow",     emoji: "🐄", young: "Calf",   adultM: "Bull",     adultF: "Cow",     matureMonths: 18, gestationDays: 283, prefix: "C" },
-  BUFFALO: { label: "Buffalo", emoji: "🐃", young: "Calf",   adultM: "Bull",     adultF: "Buffalo", matureMonths: 24, gestationDays: 310, prefix: "B" },
-  // Calf and Heifer are tracked as their own species (not computed from age)
-  // so you can tag an animal this way yourself and re-tag it as Cow/Buffalo
-  // once it's grown. Bachra/Bachri are the Urdu terms for a male/female calf.
-  CALF:    { label: "Calf",    emoji: "🐮", young: "Calf", youngM: "Bachra", youngF: "Bachri", adultM: "Bachra", adultF: "Bachri", matureMonths: 999, gestationDays: 283, prefix: "CF" },
-  HEIFER:  { label: "Heifer",  emoji: "🐄", young: "Heifer", adultM: "Heifer",   adultF: "Heifer",  matureMonths: 999, gestationDays: 283, prefix: "HF" },
-  GOAT:    { label: "Goat",    emoji: "🐐", young: "Kid",    adultM: "Buck",     adultF: "Doe",     matureMonths: 9,  gestationDays: 150, prefix: "G" },
-  SHEEP:   { label: "Sheep",   emoji: "🐑", young: "Lamb",   adultM: "Ram",      adultF: "Ewe",     matureMonths: 9,  gestationDays: 147, prefix: "S" },
-  HORSE:   { label: "Horse",   emoji: "🐎", young: "Foal",   adultM: "Stallion", adultF: "Mare",    matureMonths: 36, gestationDays: 340, prefix: "H" },
-  POULTRY: { label: "Poultry", emoji: "🐓", young: "Chick",  adultM: "Rooster",  adultF: "Hen",     matureMonths: 5,  gestationDays: 21,  prefix: "P" },
-  OTHER:   { label: "Other",   emoji: "🐾", young: "Young",  adultM: "Male",     adultF: "Female",  matureMonths: 12, gestationDays: 0,   prefix: "O" },
+  COW:         { label: "Cow",         emoji: "🐄", young: "Calf",   adultM: "Bull",     adultF: "Cow",     matureMonths: 18, gestationDays: 283, prefix: "C" },
+  BULL:        { label: "Bull",        emoji: "🐂", young: "Calf",   adultM: "Bull",     adultF: "Bull",    matureMonths: 18, gestationDays: 283, prefix: "BL" },
+  BULL_CALF:   { label: "Bull Calf",   emoji: "🐮", young: "Bull Calf", adultM: "Bull Calf", adultF: "Bull Calf", matureMonths: 999, gestationDays: 283, prefix: "BC" },
+  HEIFER:      { label: "Heifer",      emoji: "🐄", young: "Heifer", adultM: "Heifer",   adultF: "Heifer",  matureMonths: 999, gestationDays: 283, prefix: "HF" },
+  HEIFER_CALF: { label: "Heifer Calf", emoji: "🐮", young: "Heifer Calf", adultM: "Heifer Calf", adultF: "Heifer Calf", matureMonths: 999, gestationDays: 283, prefix: "HC" },
+  GOAT:        { label: "Goat",        emoji: "🐐", young: "Kid",    adultM: "Buck",     adultF: "Doe",     matureMonths: 9,  gestationDays: 150, prefix: "G" },
+  GOAT_KID:    { label: "Baby Goat",   emoji: "🐐", young: "Baby Goat", adultM: "Baby Goat", adultF: "Baby Goat", matureMonths: 999, gestationDays: 150, prefix: "GK" },
+  SHEEP:       { label: "Sheep",       emoji: "🐑", young: "Lamb",   adultM: "Ram",      adultF: "Ewe",     matureMonths: 9,  gestationDays: 147, prefix: "S" },
+  HORSE:       { label: "Horse",       emoji: "🐎", young: "Foal",   adultM: "Stallion", adultF: "Mare",    matureMonths: 36, gestationDays: 340, prefix: "H" },
 };
 
 /** "Calf", "Kid", "Cow", "Buck" … computed from species + age + sex. */
@@ -54,6 +51,7 @@ export const HEALTH_TYPE: Record<HealthRecordType, { label: string; tone: "brand
   LAB_TEST:        { label: "Lab test", tone: "muted" },
   HOOF_CARE:       { label: "Hoof care", tone: "muted" },
   PREGNANCY_CHECK: { label: "Pregnancy check", tone: "brand" },
+  INSEMINATION:    { label: "Insemination", tone: "brand" },
   DEATH_REPORT:    { label: "Death report", tone: "bad" },
   OTHER:           { label: "Other", tone: "muted" },
 };
@@ -101,10 +99,15 @@ export const BREEDING_STATUS_LABEL: Record<BreedingStatus, string> = {
 export const ROUTES = ["IM (intramuscular)", "SC (subcutaneous)", "IV (intravenous)", "Oral", "Topical", "Intranasal", "Intramammary"];
 
 export const EXPENSE_CATEGORIES = [
-  "Feed", "Chaara (Green Fodder)", "Wanda / Khal", "Veterinary", "Medicine",
-  "Animal Purchase", "Dewar / Labour", "Equipment", "Transport",
-  "Bijli / Utilities", "Tube Well / Water", "Shed / Maintenance",
-  "Breeding / AI", "Insurance", "Other Expense",
+  "Feed", "Feeding Cost", "Direct Purchase - Feed", "Chaara (Green Fodder)", "Wanda / Khal",
+  "Veterinary", "Vet Cost", "Medicine",
+  "Animal Purchase", "Dewar / Labour", "Worker Salary", "Labour Cost", "Labour / Wages", "Caretaker Salary",
+  "Equipment", "Construction", "Transport",
+  "Bijli / Utilities", "Utilities", "Tube Well / Water",
+  "Farm Rent", "Operational Cost", "Shed / Maintenance",
+  "Breeding / AI", "Batch Cost", "Insurance",
+  "Loan - Javed", "Tenent Advance", "mics",
+  "Other Expense",
 ];
 
 export const INCOME_CATEGORIES = [
@@ -124,20 +127,33 @@ export type CategoryGroup = (typeof CATEGORY_GROUPS)[number];
 
 export const DEFAULT_CATEGORY_GROUP: Record<string, CategoryGroup> = {
   "Feed": "Operational",
+  "Feeding Cost": "Operational",
+  "Direct Purchase - Feed": "Operational",
   "Chaara (Green Fodder)": "Operational",
   "Wanda / Khal": "Operational",
+  "Vet Cost": "Operational",
+  "Worker Salary": "Operational",
+  "Labour Cost": "Operational",
+  "Operational Cost": "Operational",
+  "Farm Rent": "Operational",
+  "Construction": "Capital & Construction",
+  "Equipment": "Capital & Construction",
+  "Animal Purchase": "Animal Purchases",
+  "Loan - Javed": "Other",
+  "Tenent Advance": "Other",
+  "mics": "Other",
   "Veterinary": "Operational",
   "Medicine": "Operational",
   "Dewar / Labour": "Operational",
   "Labour / Wages": "Operational",
+  "Caretaker Salary": "Operational",
   "Transport": "Operational",
   "Bijli / Utilities": "Operational",
   "Utilities": "Operational",
   "Tube Well / Water": "Operational",
   "Breeding / AI": "Operational",
+  "Batch Cost": "Operational",
   "Insurance": "Operational",
-  "Animal Purchase": "Animal Purchases",
-  "Equipment": "Capital & Construction",
   "Shed / Maintenance": "Capital & Construction",
   "Other Expense": "Other",
 };
@@ -165,7 +181,37 @@ export const FEED_SUGGESTIONS: { name: string; category: string; unit: string }[
 /** Common vaccines by species — used as quick-pick suggestions for the vet. */
 export const VACCINE_SUGGESTIONS: Partial<Record<Species, string[]>> = {
   COW: ["FMD (Foot & Mouth)", "HS (Haemorrhagic Septicaemia)", "Black Quarter", "Brucella RB51", "Anthrax", "Lumpy Skin Disease"],
-  BUFFALO: ["FMD (Foot & Mouth)", "HS (Haemorrhagic Septicaemia)", "Black Quarter", "Anthrax"],
+  BULL: ["FMD (Foot & Mouth)", "HS (Haemorrhagic Septicaemia)", "Black Quarter", "Anthrax"],
+  BULL_CALF: ["FMD (Foot & Mouth)", "HS (Haemorrhagic Septicaemia)", "Black Quarter"],
+  HEIFER: ["FMD (Foot & Mouth)", "HS (Haemorrhagic Septicaemia)", "Black Quarter", "Brucella RB51"],
+  HEIFER_CALF: ["FMD (Foot & Mouth)", "HS (Haemorrhagic Septicaemia)", "Black Quarter"],
   GOAT: ["PPR (Peste des Petits Ruminants)", "Enterotoxaemia (ET)", "Goat Pox", "CCPP", "Tetanus", "Anthrax"],
+  GOAT_KID: ["PPR (Peste des Petits Ruminants)", "Enterotoxaemia (ET)", "Goat Pox"],
   SHEEP: ["PPR", "Enterotoxaemia (ET)", "Sheep Pox", "Blue Tongue", "Tetanus"],
 };
+
+/**
+ * What buyers usually take off the farm: the unit it's sold in and the income
+ * category its sales land under in the ledger. These only pre-fill a customer's
+ * rate card — any other product, unit or category can still be typed in.
+ */
+export const SALE_PRODUCTS: { product: string; unit: string; category: string }[] = [
+  { product: "Milk", unit: "litre", category: "Milk Sales" },
+  { product: "Buffalo milk", unit: "litre", category: "Milk Sales" },
+  { product: "Ghee", unit: "kg", category: "Other Income" },
+  { product: "Manure", unit: "trolley", category: "Manure Sales" },
+  { product: "Animal", unit: "head", category: "Animal Sale" },
+  { product: "Breeding service", unit: "service", category: "Breeding Service" },
+  { product: "Wool / hair", unit: "kg", category: "Wool / Hair" },
+];
+
+export const SALE_UNITS = ["litre", "kg", "maund", "trolley", "bag", "head", "dozen", "service"];
+
+/** The unit and income category a product is usually sold under, if it's a known one. */
+export function saleProductPreset(product: string) {
+  const key = product.trim().toLowerCase();
+  return SALE_PRODUCTS.find((p) => p.product.toLowerCase() === key) ?? null;
+}
+
+/** Filter value meaning "no payer recorded on the entry". */
+export const NO_PAYER = "__none__";

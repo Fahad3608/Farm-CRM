@@ -11,7 +11,7 @@ export function Section({
   return (
     <section className={`card overflow-hidden ${className}`}>
       {(title || action) && (
-        <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+        <header className="section-heading flex items-center justify-between gap-3 border-b border-line px-4 py-3">
           <div className="min-w-0">
             {title && <h2 className="h2 truncate">{title}</h2>}
             {subtitle && <p className="text-[13px] text-muted truncate">{subtitle}</p>}
@@ -30,6 +30,8 @@ const TONES = {
   warn: "border-warn/30 bg-warn/10 text-warn",
   bad: "border-bad/30 bg-bad/10 text-bad",
   muted: "border-line bg-surface2 text-muted",
+  info: "border-info/30 bg-info/10 text-info",
+  accent: "border-accent/30 bg-accent/10 text-accent",
 } as const;
 
 export function Badge({
@@ -46,10 +48,10 @@ export function StatTile({
   label, value, hint, tone = "muted", href,
 }: { label: string; value: ReactNode; hint?: string; tone?: keyof typeof TONES; href?: string }) {
   const body = (
-    <div className="card h-full px-4 py-3.5 transition-colors hover:bg-surface2/50">
+    <div data-tone={tone} className="card stat-tile h-full px-4 py-3.5">
       <div className="text-[12px] font-medium uppercase tracking-wide text-muted">{label}</div>
       <div className={`mt-1 text-[26px] font-semibold leading-tight tracking-tight ${
-        tone === "good" ? "text-good" : tone === "bad" ? "text-bad" : tone === "warn" ? "text-warn" : "text-ink"
+        tone === "good" ? "text-good" : tone === "bad" ? "text-bad" : tone === "warn" ? "text-warn" : tone === "info" ? "text-info" : tone === "accent" ? "text-accent" : "text-ink"
       }`}>
         {value}
       </div>
@@ -73,7 +75,7 @@ export function Empty({ icon = "🌾", title, hint, action }: { icon?: string; t
 export function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
   return (
     <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-      <div>
+      <div className="page-heading">
         <h1 className="h1">{title}</h1>
         {subtitle && <p className="mt-0.5 text-[14px] text-muted">{subtitle}</p>}
       </div>

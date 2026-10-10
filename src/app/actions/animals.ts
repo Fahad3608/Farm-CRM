@@ -8,7 +8,7 @@ import { can } from "@/lib/permissions";
 import { bool, date, dec, enumOf, reqDate, reqStr, str } from "@/lib/form";
 import type { AcquisitionType, AnimalStatus, ReproStatus, Sex, Species } from "@prisma/client";
 
-const SPECIES_VALUES = ["COW", "BUFFALO", "CALF", "HEIFER", "GOAT", "SHEEP", "HORSE", "POULTRY", "OTHER"] as const;
+const SPECIES_VALUES = ["COW", "BULL", "BULL_CALF", "HEIFER", "HEIFER_CALF", "GOAT", "GOAT_KID", "SHEEP", "HORSE"] as const;
 const SEX_VALUES = ["MALE", "FEMALE"] as const;
 const STATUS_VALUES = ["ACTIVE", "SOLD", "DECEASED", "CULLED", "LOANED_OUT"] as const;
 const REPRO_VALUES = ["NOT_APPLICABLE", "OPEN", "BRED", "PREGNANT", "LACTATING", "DRY", "CASTRATED"] as const;
@@ -42,6 +42,22 @@ async function syncPurchaseTransaction(input: {
   };
   if (existing) await prisma.transaction.update({ where: { id: existing.id }, data });
   else await prisma.transaction.create({ data: { ...data, createdById: input.userId } });
+}
+
+async function syncAnimalNameInTransactions(animalId: string, name: string, tagId: string) {
+  const txns = await prisma.transaction.findMany({
+    where: { animalId, description: { not: null } },
+    select: { id: true, description: true },
+  });
+  for (const txn of txns) {
+    if (!txn.description) continue;
+    const updated = txn.description
+      .replace(/Purchase of .+$/, `Purchase of ${name} (${tagId})`)
+      .replace(/Breeding — .+$/, `Breeding — ${name} (${tagId})`);
+    if (updated !== txn.description) {
+      await prisma.transaction.update({ where: { id: txn.id }, data: { description: updated } });
+    }
+  }
 }
 
 function readAnimal(fd: FormData) {
@@ -88,12 +104,16 @@ export async function saveAnimalAction(_prev: State, fd: FormData): Promise<Stat
     const price = "purchasePrice" in money ? money.purchasePrice : undefined;
 
     if (id) {
+      const old = await prisma.animal.findUnique({ where: { id }, select: { name: true, tagId: true } });
       await prisma.animal.update({ where: { id }, data: { ...data, ...money } });
       if (price !== undefined) {
         await syncPurchaseTransaction({
           animalId: id, name: data.name, tagId: data.tagId, acquisition: data.acquisition,
           price, date: data.dateJoined, vendor: data.sourceName, userId: user.id,
         });
+      }
+      if (old && (old.name !== data.name || old.tagId !== data.tagId)) {
+        await syncAnimalNameInTransactions(id, data.name, data.tagId);
       }
     } else {
       const created = await prisma.animal.create({ data: { ...data, ...money } });
@@ -114,6 +134,10 @@ export async function saveAnimalAction(_prev: State, fd: FormData): Promise<Stat
 
   revalidatePath("/animals");
   revalidatePath("/dashboard");
+  const motherId = str(fd, "motherId");
+  const fatherId = str(fd, "fatherId");
+  if (motherId) revalidatePath(`/animals/${motherId}`);
+  if (fatherId) revalidatePath(`/animals/${fatherId}`);
   redirect(`/animals/${newId}`);
 }
 
@@ -160,6 +184,29 @@ export async function backfillPurchaseTransactionsAction(_prev: State, _fd: Form
       ? `Added ${added} missing purchase${added === 1 ? "" : "s"} to Finance.`
       : "Nothing to fix — every purchased animal already has a Finance entry.",
   };
+}
+
+export async function deduplicatePurchaseTransactionsAction(_prev: State, _fd: FormData): Promise<State> {
+  const user = await requireUser();
+  if (!can.editFinance(user.role)) return { error: "Not permitted." };
+
+  const dupes = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT t1.id FROM "Transaction" t1
+    JOIN "Transaction" t2 ON t1."animalId" = t2."animalId"
+      AND t1.category = 'Animal Purchase' AND t2.category = 'Animal Purchase'
+      AND t1.type = 'EXPENSE' AND t2.type = 'EXPENSE'
+      AND t1.id <> t2.id AND t1."createdAt" < t2."createdAt"
+    WHERE t1."animalId" IS NOT NULL`;
+
+  const ids = [...new Set(dupes.map((d) => d.id))];
+  if (ids.length === 0) {
+    return { ok: "No duplicates found." };
+  }
+
+  await prisma.transaction.deleteMany({ where: { id: { in: ids } } });
+  revalidatePath("/finance");
+  revalidatePath("/dashboard");
+  return { ok: `Removed ${ids.length} duplicate purchase entr${ids.length === 1 ? "y" : "ies"}.` };
 }
 
 export async function recordSaleAction(_prev: State, fd: FormData): Promise<State> {
@@ -209,8 +256,8 @@ export async function recordSaleAction(_prev: State, fd: FormData): Promise<Stat
  * purchase price survived with nothing to say who it was for. Money that left
  * the farm should stay in the books either way, so every transaction touching
  * this animal is detached and stamped with its name before the delete runs.
- * The ledger total is unchanged; the entries just read "Gauri (COW-001)
- * (removed)" instead of linking to a profile that no longer exists.
+ * The ledger total is unchanged; the entries just read “Gauri (COW-001)
+ * (removed)” instead of linking to a profile that no longer exists.
  */
 export async function deleteAnimalAction(fd: FormData) {
   const user = await requireUser();
@@ -270,7 +317,7 @@ export async function uploadPhotoAction(_prev: State, fd: FormData): Promise<Sta
   try {
     const f = parse(full);
     const t = parse(thumb);
-    if (f.buffer.byteLength > 6_000_000) return { error: "That image is too large — try a smaller photo." };
+    if (f.buffer.byteLength > 10_000_000) return { error: "That image is too large — try a smaller photo." };
 
     const photo = await prisma.photo.create({
       data: {

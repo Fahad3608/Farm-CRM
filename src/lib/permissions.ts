@@ -2,8 +2,8 @@ import type { Role } from "@prisma/client";
 
 /**
  * Single source of truth for what each role can do.
- * VET is intentionally walled off from anything money-related except
- * the fee/medicine cost on the record they themselves write.
+ * VET is deliberately the narrowest role: the animal list and health records,
+ * nothing else. No money, no weights or yields, no breeding, no herd history.
  */
 export const can = {
   viewFinance: (r: Role) => r === "OWNER" || r === "MANAGER",
@@ -13,10 +13,13 @@ export const can = {
   manageUsers: (r: Role) => r === "OWNER",
   manageSettings: (r: Role) => r === "OWNER" || r === "MANAGER",
   writeHealth: (r: Role) => r === "OWNER" || r === "MANAGER" || r === "VET",
-  writeBreeding: (r: Role) => r === "OWNER" || r === "MANAGER" || r === "VET",
+  viewBreeding: (r: Role) => r !== "VET",
+  writeBreeding: (r: Role) => r === "OWNER" || r === "MANAGER",
   writeDailyLogs: (r: Role) => r !== "VET", // feed, milk, weight
   viewAnimals: (_r: Role) => true,
-  uploadPhotos: (r: Role) => r !== "VET" || true, // vets may attach clinical photos
+  // Everything on an animal beyond its health: how it was acquired, family,
+  // feed, growth, milk, photos.
+  viewAnimalHistory: (r: Role) => r !== "VET",
 };
 
 export const ROLE_LABEL: Record<Role, string> = {
@@ -29,6 +32,6 @@ export const ROLE_LABEL: Record<Role, string> = {
 export const ROLE_BLURB: Record<Role, string> = {
   OWNER: "Full access, including finances and user management.",
   MANAGER: "Everything except managing user accounts.",
-  VET: "Health & breeding records only — no finances, no purchase or sale prices.",
+  VET: "Animal list and health records only — no prices, weights, yields or herd history.",
   WORKER: "Daily logs (feed, milk, weights) — no finances.",
 };

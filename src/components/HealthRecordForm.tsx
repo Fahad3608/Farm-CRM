@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import ActionForm, { SubmitButton } from "./ActionForm";
-import { saveHealthRecordAction } from "@/app/actions/health";
+import { saveHealthRecordAction, saveVetVisitAction } from "@/app/actions/health";
 import { Field } from "./ui";
-import { ROUTES } from "@/lib/domain";
 
 type AnimalOpt = { id: string; label: string; species: string };
 
@@ -12,34 +11,129 @@ const TYPES = [
   ["VACCINATION", "Vaccination"], ["INJECTION", "Injection"], ["DEWORMING", "Deworming"],
   ["TREATMENT", "Treatment / illness"], ["CHECKUP", "Routine check-up"], ["PREGNANCY_CHECK", "Pregnancy check"],
   ["SURGERY", "Surgery"], ["LAB_TEST", "Lab test"], ["HOOF_CARE", "Hoof care"],
-  ["DEATH_REPORT", "Death report"], ["OTHER", "Other"],
+  ["INSEMINATION", "Insemination"], ["DEATH_REPORT", "Death report"], ["OTHER", "Other"],
 ];
 
-/**
- * The one form a vet uses. Cost fields are shown to whoever is entering the
- * visit (the vet bills it) but the finance pages stay owner-only.
- */
+const SPECIES_LABELS: Record<string, string> = {
+  COW: "Cow", BULL: "Bull", BULL_CALF: "Bull Calf", HEIFER: "Heifer",
+  HEIFER_CALF: "Heifer Calf", GOAT: "Goat", GOAT_KID: "Baby Goat",
+  SHEEP: "Sheep", HORSE: "Horse",
+};
+
 export default function HealthRecordForm({
-  animals, animalId, vaccineSuggestions = [], onDone,
-}: { animals: AnimalOpt[]; animalId?: string; vaccineSuggestions?: string[]; onDone?: () => void }) {
+  animals, animalId, vaccineSuggestions = [], showCosts = true, onDone,
+}: { animals: AnimalOpt[]; animalId?: string; vaccineSuggestions?: string[]; showCosts?: boolean; onDone?: () => void }) {
   const [type, setType] = useState("VACCINATION");
-  const [selected, setSelected] = useState(animalId ?? animals[0]?.id ?? "");
+  const [search, setSearch] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [speciesFilter, setSpeciesFilter] = useState("ALL");
+  const [savedCount, setSavedCount] = useState(0);
   const today = new Date().toISOString().slice(0, 10);
   const isMedicine = ["VACCINATION", "INJECTION", "DEWORMING", "TREATMENT"].includes(type);
+  const multiAnimal = !animalId && animals.length > 0;
+
+  const availableSpecies = useMemo(() => {
+    const set = new Set(animals.map((a) => a.species));
+    return Array.from(set).sort();
+  }, [animals]);
+
+  const speciesFiltered = useMemo(() => {
+    if (speciesFilter === "ALL") return animals;
+    return animals.filter((a) => a.species === speciesFilter);
+  }, [animals, speciesFilter]);
+
+  const filtered = useMemo(() => {
+    if (!search) return speciesFiltered;
+    const q = search.toLowerCase();
+    return speciesFiltered.filter((a) => a.label.toLowerCase().includes(q));
+  }, [speciesFiltered, search]);
+
+  function toggleAnimal(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    const visibleIds = filtered.map((a) => a.id);
+    const allSelected = visibleIds.every((id) => selectedIds.has(id));
+    if (allSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        visibleIds.forEach((id) => next.delete(id));
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        visibleIds.forEach((id) => next.add(id));
+        return next;
+      });
+    }
+  }
 
   return (
-    <ActionForm action={saveHealthRecordAction} className="flex flex-col gap-4" resetOnSuccess onSuccess={onDone}>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {animalId ? (
-          <input type="hidden" name="animalId" value={animalId} />
-        ) : (
-          <Field label="Animal *">
-            <select name="animalId" required value={selected} onChange={(e) => setSelected(e.target.value)} className="input">
-              {animals.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
-            </select>
-          </Field>
-        )}
+    <ActionForm
+      action={multiAnimal ? saveVetVisitAction : saveHealthRecordAction}
+      className="flex flex-col gap-4"
+      resetOnSuccess
+      onSuccess={() => { setSavedCount((c) => c + 1); if (!multiAnimal) { setSelectedIds(new Set()); onDone?.(); } }}
+    >
+      {animalId && <input type="hidden" name="animalId" value={animalId} />}
 
+      {multiAnimal && (
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <span className="text-[13px] font-semibold uppercase tracking-wide text-muted">
+              Animals *
+              {selectedIds.size > 0 && <span className="ml-1 normal-case tracking-normal text-ink">({selectedIds.size} selected)</span>}
+            </span>
+            <button type="button" onClick={toggleAll} className="text-[13px] text-brand hover:underline">
+              {filtered.length > 0 && filtered.every((a) => selectedIds.has(a.id)) ? "Deselect all" : "Select all"}
+            </button>
+          </div>
+          {availableSpecies.length > 1 && (
+            <select
+              value={speciesFilter}
+              onChange={(e) => setSpeciesFilter(e.target.value)}
+              className="input mb-2"
+            >
+              <option value="ALL">All types</option>
+              {availableSpecies.map((s) => (
+                <option key={s} value={s}>{SPECIES_LABELS[s] ?? s}</option>
+              ))}
+            </select>
+          )}
+          {speciesFiltered.length > 8 && (
+            <input
+              type="search" placeholder="Search animals…" value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input mb-2"
+            />
+          )}
+          <div className="max-h-48 overflow-y-auto rounded-xl border border-line bg-surface2 p-1">
+            {filtered.map((a) => (
+              <label key={a.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-[14px] hover:bg-surface">
+                <input
+                  type="checkbox" name="animalId" value={a.id}
+                  checked={selectedIds.has(a.id)}
+                  onChange={() => toggleAnimal(a.id)}
+                  className="h-4 w-4 accent-[rgb(var(--brand))]"
+                />
+                {a.label}
+              </label>
+            ))}
+            {filtered.length === 0 && (
+              <p className="px-2.5 py-2 text-[13px] text-muted">No animals match</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Type *">
           <select name="type" value={type} onChange={(e) => setType(e.target.value)} className="input">
             {TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -58,41 +152,43 @@ export default function HealthRecordForm({
         </Field>
 
         {isMedicine && (
-          <>
-            <Field label="Medicine / vaccine name"><input name="medicine" className="input" placeholder="Ivermectin 1%" /></Field>
-            <Field label="Brand / manufacturer"><input name="brand" className="input" /></Field>
-            <Field label="Dosage"><input name="dosage" className="input" placeholder="5 ml" /></Field>
-            <Field label="Route">
-              <input name="route" className="input" list="route-opts" placeholder="IM (intramuscular)" />
-              <datalist id="route-opts">{ROUTES.map((r) => <option key={r} value={r} />)}</datalist>
-            </Field>
-            <Field label="Batch / lot no."><input name="batchNo" className="input" /></Field>
-            <Field label="Milk / meat withdrawal until" hint="Do not sell produce before this date">
-              <input type="date" name="withdrawalUntil" className="input" />
-            </Field>
-          </>
+          <Field label="Medicine / vaccine name"><input name="medicine" className="input" placeholder="Ivermectin 1%" /></Field>
         )}
-
-        <Field label="Symptoms observed" className="sm:col-span-2"><input name="symptoms" className="input" placeholder="Off feed, limping on right hind leg…" /></Field>
-        <Field label="Diagnosis"><input name="diagnosis" className="input" /></Field>
-        <Field label="Treatment given"><input name="treatment" className="input" /></Field>
-        <Field label="Temperature (°C)"><input name="temperatureC" inputMode="decimal" className="input" placeholder="38.5" /></Field>
-        <Field label="Weight (kg)" hint="Also saved to the growth chart"><input name="weightKg" inputMode="decimal" className="input" /></Field>
 
         <Field label="Next dose / follow-up date" hint="Shows up as a reminder on the dashboard">
           <input type="date" name="nextDueDate" className="input" />
         </Field>
         <Field label="Vet name" hint="Leave blank if you are the vet signed in"><input name="vetName" className="input" /></Field>
 
-        <Field label="Medicine cost"><input name="medicineCost" inputMode="decimal" className="input" placeholder="0" /></Field>
-        <Field label="Vet / doctor fee"><input name="vetFee" inputMode="decimal" className="input" placeholder="0" /></Field>
+        {showCosts && (
+          <>
+            <Field label="Medicine cost" hint={multiAnimal && selectedIds.size > 1 ? "Per animal" : undefined}>
+              <input name="medicineCost" inputMode="decimal" className="input" placeholder="0" />
+            </Field>
+            <Field label="Vet / doctor fee" hint={multiAnimal && selectedIds.size > 1 ? "Per animal" : undefined}>
+              <input name="vetFee" inputMode="decimal" className="input" placeholder="0" />
+            </Field>
+          </>
+        )}
 
         <Field label="Notes" className="sm:col-span-2">
           <textarea name="notes" rows={2} className="input resize-y" />
         </Field>
       </div>
 
-      <div><SubmitButton>Save record</SubmitButton></div>
+      {multiAnimal && savedCount > 0 && (
+        <div className="flex items-center gap-3 rounded-xl bg-good/10 px-3 py-2 text-[13.5px] text-good">
+          <span className="font-medium">{savedCount} record{savedCount === 1 ? "" : "s"} saved — add another below or press Done.</span>
+          <button type="button" onClick={() => { setSavedCount(0); setSelectedIds(new Set()); onDone?.(); }} className="ml-auto btn-ghost btn-sm">Done</button>
+        </div>
+      )}
+      <div>
+        <SubmitButton>
+          {multiAnimal && selectedIds.size > 1
+            ? `Save for ${selectedIds.size} animals`
+            : "Save record"}
+        </SubmitButton>
+      </div>
     </ActionForm>
   );
 }

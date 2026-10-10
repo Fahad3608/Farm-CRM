@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
-import { enumOf, reqStr } from "@/lib/form";
+import { CATEGORY_GROUPS } from "@/lib/domain";
+import { enumOf, reqStr, str } from "@/lib/form";
 import type { TxnType } from "@prisma/client";
 
 type State = { error?: string; ok?: string } | undefined;
@@ -16,7 +17,9 @@ export async function createCategoryAction(_prev: State, fd: FormData): Promise<
   try {
     const name = reqStr(fd, "name", "Category name");
     const type = enumOf<TxnType>(fd, "type", ["EXPENSE", "INCOME"] as const, "EXPENSE");
-    await prisma.category.create({ data: { name, type } });
+    const group = type === "EXPENSE" ? str(fd, "group") : null;
+    if (group && !CATEGORY_GROUPS.includes(group as typeof CATEGORY_GROUPS[number])) return { error: "Choose a valid spending group." };
+    await prisma.category.create({ data: { name, type, group } });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Could not save.";
     if (msg.includes("Unique constraint")) return { error: "That category already exists." };
@@ -49,6 +52,7 @@ export async function setCategoryGroupAction(fd: FormData) {
   if (!can.editFinance(user.role)) throw new Error("Not permitted.");
   const name = reqStr(fd, "name");
   const group = reqStr(fd, "group");
+  if (!CATEGORY_GROUPS.includes(group as typeof CATEGORY_GROUPS[number])) throw new Error("Choose a valid spending group.");
   await prisma.category.upsert({
     where: { name_type: { name, type: "EXPENSE" } },
     create: { name, type: "EXPENSE", group },
@@ -56,4 +60,14 @@ export async function setCategoryGroupAction(fd: FormData) {
   });
   revalidatePath("/finance");
   revalidatePath("/settings");
+}
+
+/** Form version gives the inline manager success and validation feedback. */
+export async function saveExpenseCategoryGroupAction(_prev: State, fd: FormData): Promise<State> {
+  try {
+    await setCategoryGroupAction(fd);
+    return { ok: "Group saved for all months." };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Could not save the group." };
+  }
 }

@@ -5,14 +5,17 @@ import { can, ROLE_BLURB, ROLE_LABEL } from "@/lib/permissions";
 import { CURRENCIES, getSettings } from "@/lib/settings";
 import { Badge, Card, Empty, Field, PageHeader, Section } from "@/components/ui";
 import ActionForm, { SubmitButton } from "@/components/ActionForm";
+import RecordActions from "@/components/RecordActions";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import Disclosure from "@/components/Disclosure";
 import { deleteUserAction, saveFarmSettingsAction, saveUserAction } from "@/app/actions/settings";
 import { createCategoryAction, deleteCategoryAction, setCategoryGroupAction } from "@/app/actions/categories";
-import { backfillPurchaseTransactionsAction } from "@/app/actions/animals";
-import { fmtDate } from "@/lib/format";
-import { Icon } from "@/components/icons";
+import { createPayerAction, deletePayerAction, renamePayerAction } from "@/app/actions/payers";
+import { backfillPurchaseTransactionsAction, deduplicatePurchaseTransactionsAction } from "@/app/actions/animals";
+import { backfillBatchCostTransactionsAction } from "@/app/actions/batches";
+import { fmtDate, money } from "@/lib/format";
 import { CATEGORY_GROUPS, EXPENSE_CATEGORIES, categoryGroupOf } from "@/lib/domain";
+import { EXPENSE_GROUP_LABELS } from "@/lib/monthlyExpenses";
 import AutoSubmitSelect from "@/components/AutoSubmitSelect";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +31,18 @@ export default async function SettingsPage() {
   const categories = can.editFinance(me.role)
     ? await prisma.category.findMany({ orderBy: [{ type: "asc" }, { name: "asc" }] })
     : [];
+  const payers = can.editFinance(me.role)
+    ? await prisma.payer.findMany({ orderBy: { name: "asc" } })
+    : [];
+  // What each payer has funded so far — the same total Finance shows, here as
+  // a sanity check that money is landing against the right person.
+  const payerTotals = can.editFinance(me.role)
+    ? new Map(
+        (await prisma.transaction.groupBy({ by: ["paidBy"], where: { type: "EXPENSE" }, _sum: { amount: true } }))
+          .filter((r) => r.paidBy)
+          .map((r) => [r.paidBy as string, Number(r._sum.amount ?? 0)]),
+      )
+    : new Map<string, number>();
 
   // Every expense category anyone could see on Finance — built-in, custom, or
   // just typed once on a transaction — so grouping covers all of them, not
@@ -99,12 +114,10 @@ export default async function SettingsPage() {
                       {c.name}
                       <Badge tone={c.type === "INCOME" ? "good" : "muted"}>{c.type === "INCOME" ? "Income" : "Expense"}</Badge>
                     </span>
-                    <form action={deleteCategoryAction}>
+                    <RecordActions label="Category actions"><form action={deleteCategoryAction}>
                       <input type="hidden" name="id" value={c.id} />
-                      <ConfirmSubmit message={`Remove "${c.name}" from your category suggestions? Existing transactions keep it.`} className="rounded-lg p-1.5 text-muted hover:text-bad">
-                        <Icon.trash className="h-4 w-4" />
-                      </ConfirmSubmit>
-                    </form>
+                      <ConfirmSubmit className="record-delete-action" message={`Remove "${c.name}" from your category suggestions? Existing transactions keep it.`}>Remove category</ConfirmSubmit>
+                    </form></RecordActions>
                   </li>
                 ))}
               </ul>
@@ -114,22 +127,77 @@ export default async function SettingsPage() {
 
         {can.editFinance(me.role) && (
           <Section
-            title="Group your expense categories"
-            subtitle="Powers Finance's Expenses by group and Monthly operational cost — pick which bucket each category rolls up into"
+            title="Who funds the farm"
+            subtitle="Partners and investors — every entry can be marked as theirs, and Finance totals what each has put in"
             className="lg:col-span-2"
           >
+            <div className="border-b border-line p-4">
+              <ActionForm action={createPayerAction} className="flex flex-wrap items-end gap-3" resetOnSuccess>
+                <Field label="Name *"><input name="name" required className="input w-auto" placeholder="e.g. Partner A" /></Field>
+                <Field label="Notes"><input name="notes" className="input w-auto" placeholder="Optional" /></Field>
+                <SubmitButton>Add payer</SubmitButton>
+              </ActionForm>
+            </div>
+
+            {payers.length === 0 ? (
+              <Empty
+                icon="🤝"
+                title="No payers yet"
+                hint="Add whoever puts money into the farm. Then pick them in “Paid by” on an entry, and Finance keeps a running total per person."
+              />
+            ) : (
+              <ul className="divide-y divide-line">
+                {payers.map((p) => (
+                  <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5">
+                    <ActionForm action={renamePayerAction} className="flex items-center gap-2">
+                      <input type="hidden" name="id" value={p.id} />
+                      <input name="name" defaultValue={p.name} className="input w-auto" aria-label="Payer name" />
+                      <SubmitButton className="btn-ghost btn-sm">Rename</SubmitButton>
+                    </ActionForm>
+                    <div className="flex items-center gap-3">
+                      <span className="tabular-nums text-[13.5px] text-muted">
+                        {money(payerTotals.get(p.name) ?? 0, settings.currency)} invested
+                      </span>
+                      <RecordActions label="Payer actions"><form action={deletePayerAction}>
+                        <input type="hidden" name="id" value={p.id} />
+                        <ConfirmSubmit className="record-delete-action"
+                          message={`Remove "${p.name}" from the payer list? Entries already marked as theirs keep the name.`}
+
+                        >Remove payer</ConfirmSubmit>
+                      </form></RecordActions>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
+        )}
+
+        {can.editFinance(me.role) && (
+          <div id="expense-groups" className="scroll-mt-4 lg:col-span-2">
+          <Section
+            title="Group your expense categories"
+            subtitle="Controls the monthly expense breakdown in Finance"
+            className="lg:col-span-2"
+          >
+            <p className="border-b border-line px-4 py-3 text-[13px] text-muted">
+              Operational costs include Farm Rent, Caretaker Salary, feed and veterinary care.
+              Construction &amp; equipment includes Construction and Equipment. Animal Purchases covers livestock.
+              Use Other when the purpose needs review. Changes regroup existing entries in every month.
+            </p>
             <ul className="divide-y divide-line">
               {allExpenseCategories.map((name) => (
                 <li key={name} className="flex items-center justify-between gap-3 px-4 py-2.5">
                   <span className="truncate text-[14px]">{name}</span>
                   <form action={setCategoryGroupAction}>
                     <input type="hidden" name="name" value={name} />
-                    <AutoSubmitSelect name="group" defaultValue={categoryGroupOf(name, assignedGroups)} options={CATEGORY_GROUPS} />
+                    <AutoSubmitSelect name="group" defaultValue={categoryGroupOf(name, assignedGroups)} options={CATEGORY_GROUPS} labels={EXPENSE_GROUP_LABELS} />
                   </form>
                 </li>
               ))}
             </ul>
           </Section>
+          </div>
         )}
 
         {can.editFinance(me.role) && (
@@ -141,6 +209,12 @@ export default async function SettingsPage() {
             <div className="p-4">
               <ActionForm action={backfillPurchaseTransactionsAction}>
                 <SubmitButton className="btn-ghost">Sync animal purchases into Finance</SubmitButton>
+              </ActionForm>
+              <ActionForm action={backfillBatchCostTransactionsAction}>
+                <SubmitButton className="btn-ghost">Sync batch costs into Finance</SubmitButton>
+              </ActionForm>
+              <ActionForm action={deduplicatePurchaseTransactionsAction}>
+                <SubmitButton className="btn-ghost">Remove duplicate purchase entries</SubmitButton>
               </ActionForm>
             </div>
           </Section>
@@ -182,8 +256,8 @@ export default async function SettingsPage() {
             ) : (
               <ul className="divide-y divide-line">
                 {users.map((u) => (
-                  <li key={u.id} className="px-4 py-3">
-                    <details>
+                  <li key={u.id} className="flex items-start gap-3 px-4 py-3">
+                    <details className="min-w-0 flex-1">
                       <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2">
                         <span className="font-medium">{u.name}</span>
                         <Badge tone={u.role === "OWNER" ? "brand" : u.role === "VET" ? "good" : "muted"}>{ROLE_LABEL[u.role]}</Badge>
@@ -219,16 +293,15 @@ export default async function SettingsPage() {
                           <div className="flex gap-2 sm:col-span-2"><SubmitButton>Save changes</SubmitButton></div>
                         </ActionForm>
 
-                        {u.id !== me.id && (
-                          <form action={deleteUserAction} className="mt-3 border-t border-line pt-3">
-                            <input type="hidden" name="id" value={u.id} />
-                            <ConfirmSubmit message={`Delete the account for ${u.name}? Their records stay on the farm.`}>
-                              <Icon.trash className="h-4 w-4" /> Delete account
-                            </ConfirmSubmit>
-                          </form>
-                        )}
+
                       </div>
                     </details>
+                        {u.id !== me.id && (
+                          <RecordActions label="Account actions"><form action={deleteUserAction}>
+                            <input type="hidden" name="id" value={u.id} />
+                            <ConfirmSubmit className="record-delete-action" message={`Delete the account for ${u.name}? Their records stay on the farm.`}>Delete account</ConfirmSubmit>
+                          </form></RecordActions>
+                        )}
                   </li>
                 ))}
               </ul>

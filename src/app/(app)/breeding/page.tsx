@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { Avatar, Badge, Card, Empty, PageHeader, Section, StatTile } from "@/components/ui";
 import Disclosure from "@/components/Disclosure";
 import BreedingForm from "@/components/BreedingForm";
+import MarkDeliveredForm from "@/components/MarkDeliveredForm";
 import { BREEDING_METHOD_LABEL, BREEDING_STATUS_LABEL, SPECIES } from "@/lib/domain";
 import { fmtDate, relativeDue } from "@/lib/format";
 
@@ -12,6 +14,7 @@ export const dynamic = "force-dynamic";
 
 export default async function BreedingPage() {
   const user = await requireUser();
+  if (!can.viewBreeding(user.role)) redirect("/vet");
   const showMoney = can.viewFinance(user.role);
 
   const [animals, records, born12] = await Promise.all([
@@ -32,6 +35,7 @@ export default async function BreedingPage() {
     }),
   ]);
 
+  const animalOpts = animals.map((a) => ({ id: a.id, label: `${a.name} (${a.tagId})` }));
   const dams = animals.filter((a) => a.sex === "FEMALE").map((a) => ({ id: a.id, label: `${a.name} (${a.tagId})` }));
   const sires = animals.filter((a) => a.sex === "MALE").map((a) => ({ id: a.id, label: `${a.name} (${a.tagId})` }));
 
@@ -64,20 +68,23 @@ export default async function BreedingPage() {
             <ul>
               {expecting.map((r) => (
                 <li key={r.id} className="border-t border-line first:border-t-0">
-                  <Link href={`/animals/${r.dam.id}?tab=breeding`} className="flex items-center gap-3 px-4 py-3 hover:bg-surface2/60">
-                    <Avatar photoId={r.dam.profilePhotoId} name={r.dam.name} size={44} emoji={SPECIES[r.dam.species].emoji} />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-medium">{r.dam.name} <span className="font-mono text-[12px] text-muted">{r.dam.tagId}</span></div>
-                      <div className="truncate text-[13px] text-muted">
-                        {BREEDING_METHOD_LABEL[r.method]} on {fmtDate(r.breedingDate)}
-                        {r.sire ? ` · sire ${r.sire.name}` : r.sireName ? ` · sire ${r.sireName}` : ""}
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <Link href={`/animals/${r.dam.id}?tab=breeding`} className="flex min-w-0 flex-1 items-center gap-3 hover:opacity-80">
+                      <Avatar photoId={r.dam.profilePhotoId} name={r.dam.name} size={44} emoji={SPECIES[r.dam.species].emoji} />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-medium">{r.dam.name} <span className="font-mono text-[12px] text-muted">{r.dam.tagId}</span></div>
+                        <div className="truncate text-[13px] text-muted">
+                          {BREEDING_METHOD_LABEL[r.method]} on {fmtDate(r.breedingDate)}
+                          {r.sire ? ` · sire ${r.sire.name}` : r.sireName ? ` · sire ${r.sireName}` : ""}
+                        </div>
                       </div>
-                    </div>
+                    </Link>
                     <div className="shrink-0 text-right">
                       <Badge tone={r.status === "CONFIRMED_PREGNANT" ? "brand" : "muted"}>{BREEDING_STATUS_LABEL[r.status]}</Badge>
                       {r.expectedDueDate && <div className="mt-1 text-[12.5px] text-muted">Due {fmtDate(r.expectedDueDate)} · {relativeDue(r.expectedDueDate)}</div>}
+                      {can.writeBreeding(user.role) && <div className="mt-1"><MarkDeliveredForm recordId={r.id} animals={animalOpts} /></div>}
                     </div>
-                  </Link>
+                  </div>
                 </li>
               ))}
             </ul>

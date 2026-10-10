@@ -8,8 +8,10 @@ import { Avatar, Badge, Card, Empty, Section, StatTile } from "@/components/ui";
 import { Icon } from "@/components/icons";
 import Tabs from "@/components/Tabs";
 import Disclosure from "@/components/Disclosure";
+import RecordActions from "@/components/RecordActions";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import PhotoUploader from "@/components/PhotoUploader";
+import PhotoLightbox from "@/components/PhotoLightbox";
 import HealthRecordForm from "@/components/HealthRecordForm";
 import BreedingForm from "@/components/BreedingForm";
 import FeedLogForm from "@/components/FeedLogForm";
@@ -21,10 +23,11 @@ import {
   REPRO_LABEL, SPECIES, STATUS_LABEL, VACCINE_SUGGESTIONS, lifeStage,
 } from "@/lib/domain";
 import { ageFrom, fmtDate, money, num, relativeDue } from "@/lib/format";
-import { deletePhotoAction, setProfilePhotoAction, deleteAnimalAction } from "@/app/actions/animals";
+import { deleteAnimalAction } from "@/app/actions/animals";
 import { deleteHealthRecordAction } from "@/app/actions/health";
 import { deleteLogAction } from "@/app/actions/logs";
 import { deleteBreedingAction } from "@/app/actions/breeding";
+import MarkDeliveredForm from "@/components/MarkDeliveredForm";
 
 export const dynamic = "force-dynamic";
 
@@ -44,9 +47,11 @@ export default async function AnimalPage({
 }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
   const user = await requireUser();
   const { id } = await params;
-  const tab = (await searchParams).tab ?? "overview";
   const settings = await getSettings();
   const showMoney = can.viewFinance(user.role);
+  // A vet gets health and nothing else, so the tab is not theirs to choose.
+  const showHistory = can.viewAnimalHistory(user.role);
+  const tab = showHistory ? (await searchParams).tab ?? "overview" : "health";
 
   const animal = await prisma.animal.findUnique({
     where: { id },
@@ -54,12 +59,19 @@ export default async function AnimalPage({
       mother: { select: { id: true, name: true, tagId: true } },
       father: { select: { id: true, name: true, tagId: true } },
       damOf: { select: { id: true, name: true, tagId: true, dateOfBirth: true }, orderBy: { dateOfBirth: "desc" } },
+      sireOf: { select: { id: true, name: true, tagId: true, dateOfBirth: true }, orderBy: { dateOfBirth: "desc" } },
       photos: { orderBy: { createdAt: "desc" }, select: { id: true, caption: true, createdAt: true } },
       healthRecords: { orderBy: { date: "desc" }, include: { vet: { select: { name: true } } } },
       weights: { orderBy: { date: "desc" }, take: 30 },
       milkRecords: { orderBy: { date: "desc" }, take: 30 },
       breedingAsDam: { orderBy: { breedingDate: "desc" }, include: { sire: { select: { name: true, tagId: true } } } },
       feedLogs: { orderBy: { date: "desc" }, take: 60, include: { feedType: { select: { name: true, unit: true } } } },
+      purchaseBatch: {
+        include: {
+          costs: true,
+          animals: { select: { id: true } },
+        },
+      },
     },
   });
   if (!animal) notFound();
@@ -91,15 +103,20 @@ export default async function AnimalPage({
   const dams = allAnimals.filter((a) => a.sex === "FEMALE").map(opt);
   const sires = allAnimals.filter((a) => a.sex === "MALE").map(opt);
 
-  const tabs = [
-    { key: "overview", label: "Overview" },
-    { key: "health", label: "Health", count: animal.healthRecords.length },
-    { key: "feed", label: "Feed", count: animal.feedLogs.length },
-    ...(animal.sex === "FEMALE" ? [{ key: "breeding", label: "Breeding", count: animal.breedingAsDam.length }] : []),
-    { key: "growth", label: "Growth & milk", count: animal.weights.length + animal.milkRecords.length },
-    { key: "photos", label: "Photos", count: animal.photos.length },
-    ...(showMoney ? [{ key: "costs", label: "Costs" }] : []),
-  ];
+  const isGoat = animal.species === "GOAT" || animal.species === "GOAT_KID";
+  const showGrowth = animal.sex === "FEMALE" && !isGoat;
+  const showMilk = showGrowth;
+  const tabs = showHistory
+    ? [
+        { key: "overview", label: "Overview" },
+        { key: "health", label: "Health", count: animal.healthRecords.length },
+        { key: "feed", label: "Feed", count: animal.feedLogs.length },
+        ...(can.viewBreeding(user.role) && animal.sex === "FEMALE" ? [{ key: "breeding", label: "Breeding", count: animal.breedingAsDam.length }] : []),
+        ...(showGrowth ? [{ key: "growth", label: "Growth & milk", count: animal.weights.length + animal.milkRecords.length }] : []),
+        { key: "photos", label: "Photos", count: animal.photos.length },
+        ...(showMoney ? [{ key: "costs", label: "Costs" }] : []),
+      ]
+    : [{ key: "health", label: "Health", count: animal.healthRecords.length }];
 
   return (
     <>
@@ -136,6 +153,10 @@ export default async function AnimalPage({
         {can.manageAnimals(user.role) && (
           <div className="flex gap-2">
             <Link href={`/animals/${animal.id}/edit`} className="btn-ghost btn-sm">Edit</Link>
+            <RecordActions label="Animal actions"><form action={deleteAnimalAction}>
+                <input type="hidden" name="id" value={animal.id} />
+                <ConfirmSubmit className="record-delete-action" message={`Delete ${animal.name} and its health, feed, breeding and photo records permanently? Financial entries stay in the ledger. To keep its history, mark it Sold or Deceased instead. This cannot be undone.`}>Delete animal</ConfirmSubmit>
+              </form></RecordActions>
           </div>
         )}
       </header>
@@ -151,7 +172,7 @@ export default async function AnimalPage({
 
       {tab === "overview" && (() => {
         const bornOnFarm = animal.acquisition === "BORN_ON_FARM";
-        const hasFamily = animal.mother || animal.father || animal.damOf.length > 0;
+        const hasFamily = animal.mother || animal.father || animal.damOf.length > 0 || animal.sireOf.length > 0;
 
         // A plain-language opening line, then the reference grid below it for the rest.
         const arrival = bornOnFarm
@@ -165,6 +186,8 @@ export default async function AnimalPage({
                 <span className="font-semibold">{animal.name}</span> is a
                 {age ? ` ${age.label} old` : ""}{animal.breed ? ` ${animal.breed}` : ""} {stage.toLowerCase()}
                 {animal.color ? `, ${animal.color.toLowerCase()} in colour` : ""}, {arrival}
+                {animal.mother ? `, mother ${animal.mother.name}` : ""}
+                {animal.father ? `, father ${animal.father.name}` : ""}
                 {animal.penOrLocation ? `, currently kept in ${animal.penOrLocation}` : ""}.
               </p>
               <dl className="mt-2 grid sm:grid-cols-2">
@@ -172,27 +195,51 @@ export default async function AnimalPage({
                 <InfoRow label="Horns" value={animal.hornStatus} />
                 <InfoRow label="Date of birth" value={animal.dateOfBirth ? `${fmtDate(animal.dateOfBirth)}${animal.ageIsEstimated ? " (est.)" : ""}` : null} />
                 <InfoRow label="Joined the farm" value={fmtDate(animal.dateJoined)} />
+                <InfoRow label="Mother" value={animal.mother ? <Link className="text-brand hover:underline" href={`/animals/${animal.mother.id}`}>{animal.mother.name} ({animal.mother.tagId})</Link> : null} />
+                <InfoRow label="Father" value={animal.father ? <Link className="text-brand hover:underline" href={`/animals/${animal.father.id}`}>{animal.father.name} ({animal.father.tagId})</Link> : null} />
                 {!bornOnFarm && <InfoRow label="Seller / source" value={animal.sourceName} />}
                 {showMoney && animal.purchasePrice && <InfoRow label="Purchase price" value={money(animal.purchasePrice, settings.currency)} />}
               </dl>
             </Section>
 
-            {bornOnFarm && hasFamily && (
+            {showMoney && animal.purchaseBatch && (() => {
+              const b = animal.purchaseBatch;
+              const batchCostTotal = b.costs.reduce((s, c) => s + Number(c.amount), 0);
+              const batchAnimalCount = b.animals.length;
+              const perAnimalShare = batchAnimalCount > 0 ? batchCostTotal / batchAnimalCount : 0;
+              return (
+                <Section title="Purchase batch" action={<Link href={`/batches/${b.id}`} className="text-[13px] text-brand hover:underline">View batch</Link>}>
+                  <dl className="grid sm:grid-cols-2">
+                    <InfoRow label="Batch" value={b.name} />
+                    <InfoRow label="Date" value={fmtDate(b.date)} />
+                    <InfoRow label="Animals in batch" value={batchAnimalCount} />
+                    <InfoRow label="Shared costs" value={money(batchCostTotal, settings.currency)} />
+                    <InfoRow label="Per-animal share" value={money(perAnimalShare, settings.currency)} />
+                    <InfoRow label="Total inc. share" value={money(Number(animal.purchasePrice ?? 0) + perAnimalShare, settings.currency)} />
+                  </dl>
+                </Section>
+              );
+            })()}
+
+            {hasFamily && (
               <Section title="Family">
                 <dl className="grid sm:grid-cols-2 sm:gap-y-1 sm:py-2">
                   <InfoRow label="Mother" value={animal.mother ? <Link className="text-brand hover:underline" href={`/animals/${animal.mother.id}`}>{animal.mother.name} ({animal.mother.tagId})</Link> : null} />
                   <InfoRow label="Father" value={animal.father ? <Link className="text-brand hover:underline" href={`/animals/${animal.father.id}`}>{animal.father.name} ({animal.father.tagId})</Link> : null} />
-                  {animal.damOf.length > 0 && (
-                    <InfoRow
-                      label="Offspring"
-                      value={<span className="flex flex-wrap justify-end gap-1.5">{animal.damOf.map((c) => <Link key={c.id} href={`/animals/${c.id}`} className="chip hover:bg-surface2">{c.name}</Link>)}</span>}
-                    />
-                  )}
+                  {(animal.damOf.length > 0 || animal.sireOf.length > 0) && (() => {
+                    const offspring = [...animal.damOf, ...animal.sireOf].sort((a, b) => (b.dateOfBirth?.getTime() ?? 0) - (a.dateOfBirth?.getTime() ?? 0));
+                    return (
+                      <InfoRow
+                        label="Offspring"
+                        value={<span className="flex flex-wrap justify-end gap-1.5">{offspring.map((c) => <Link key={c.id} href={`/animals/${c.id}`} className="chip hover:bg-surface2">{c.name}</Link>)}</span>}
+                      />
+                    );
+                  })()}
                 </dl>
               </Section>
             )}
 
-            <Section title="Notes" className={bornOnFarm && hasFamily ? "" : "lg:col-span-2"}>
+            <Section title="Notes" className={hasFamily ? "" : "lg:col-span-2"}>
               <p className="whitespace-pre-wrap px-4 py-3 text-[14.5px] text-muted">{animal.notes || "No notes yet."}</p>
             </Section>
 
@@ -209,26 +256,11 @@ export default async function AnimalPage({
             )}
 
           {can.manageAnimals(user.role) && animal.status === "ACTIVE" && (
-            <Section title="Record a sale, death or transfer">
-              <div className="p-4"><SaleForm animalId={animal.id} currency={settings.currency} /></div>
-            </Section>
-          )}
-
-          {can.manageAnimals(user.role) && (
-            <Card className="p-4">
-              <h2 className="h2 text-bad">Danger zone</h2>
-              <p className="mt-1 text-[13px] text-muted">
-                Deleting removes this animal and its health, feed, breeding and photo records permanently.
-                Money already spent stays in your accounts, labelled &ldquo;{animal.name} ({animal.tagId})&rdquo;,
-                so your totals do not change. To keep the full history, mark it Sold or Deceased instead.
-              </p>
-              <form action={deleteAnimalAction} className="mt-3">
-                <input type="hidden" name="id" value={animal.id} />
-                <ConfirmSubmit message={`Delete ${animal.name} and all its records? This cannot be undone.`}>
-                  <Icon.trash className="h-4 w-4" /> Delete animal
-                </ConfirmSubmit>
-              </form>
-            </Card>
+            <div className="lg:col-span-2">
+              <Disclosure label="Record a sale, death or transfer">
+                <Card className="p-4"><SaleForm animalId={animal.id} currency={settings.currency} /></Card>
+              </Disclosure>
+            </div>
           )}
           </div>
         );
@@ -239,7 +271,7 @@ export default async function AnimalPage({
           {can.writeHealth(user.role) && (
             <Disclosure label="Add health record">
               <Card className="p-4">
-                <HealthRecordForm animals={[]} animalId={animal.id} vaccineSuggestions={VACCINE_SUGGESTIONS[animal.species] ?? []} />
+                <HealthRecordForm animals={[]} animalId={animal.id} vaccineSuggestions={VACCINE_SUGGESTIONS[animal.species] ?? []} showCosts={showMoney} />
               </Card>
             </Disclosure>
           )}
@@ -287,12 +319,10 @@ export default async function AnimalPage({
                           </span>
                         )}
                         {can.writeHealth(user.role) && (
-                          <form action={deleteHealthRecordAction}>
+                          <RecordActions label="Health record actions"><form action={deleteHealthRecordAction}>
                             <input type="hidden" name="id" value={r.id} />
-                            <ConfirmSubmit message="Delete this health record?" className="rounded-lg p-1.5 text-muted hover:bg-surface2 hover:text-bad">
-                              <Icon.trash className="h-4 w-4" />
-                            </ConfirmSubmit>
-                          </form>
+                            <ConfirmSubmit className="record-delete-action" message="Delete this health record?">Delete health record</ConfirmSubmit>
+                          </form></RecordActions>
                         )}
                       </div>
                     </div>
@@ -393,12 +423,15 @@ export default async function AnimalPage({
                         {b.notes && <p className="mt-1 text-[13.5px] text-muted">{b.notes}</p>}
                       </div>
                       {can.writeBreeding(user.role) && (
-                        <form action={deleteBreedingAction}>
-                          <input type="hidden" name="id" value={b.id} />
-                          <ConfirmSubmit message="Delete this breeding record?" className="rounded-lg p-1.5 text-muted hover:bg-surface2 hover:text-bad">
-                            <Icon.trash className="h-4 w-4" />
-                          </ConfirmSubmit>
-                        </form>
+                        <div className="flex items-center gap-2">
+                          {(b.status === "BRED" || b.status === "CONFIRMED_PREGNANT") && (
+                            <MarkDeliveredForm recordId={b.id} animals={allAnimals.map((a) => ({ id: a.id, label: `${a.name} (${a.tagId})` }))} />
+                          )}
+                          <RecordActions label="Breeding record actions"><form action={deleteBreedingAction}>
+                            <input type="hidden" name="id" value={b.id} />
+                            <ConfirmSubmit className="record-delete-action" message="Delete this breeding record?">Delete breeding record</ConfirmSubmit>
+                          </form></RecordActions>
+                        </div>
                       )}
                     </div>
                   </li>
@@ -409,8 +442,8 @@ export default async function AnimalPage({
         </div>
       )}
 
-      {tab === "growth" && (
-        <div className="grid items-start gap-4 lg:grid-cols-2">
+      {tab === "growth" && showGrowth && (
+        <div className={`grid items-start gap-4 ${showMilk ? "lg:grid-cols-2" : ""}`}>
           <Section title="Weight history" subtitle={animal.weights[0] ? `Latest: ${num(animal.weights[0].weightKg, 1)} kg` : undefined}>
             <div className="border-b border-line p-4"><AddWeightForm animalId={animal.id} /></div>
             {animal.weights.length === 0 ? (
@@ -424,7 +457,7 @@ export default async function AnimalPage({
             )}
           </Section>
 
-          <Section title="Milk production" subtitle="Last 30 entries">
+          {showMilk && <Section title="Milk production" subtitle="Last 30 entries">
             {can.writeDailyLogs(user.role) && <div className="border-b border-line p-4"><AddMilkForm animalId={animal.id} /></div>}
             {animal.milkRecords.length === 0 ? (
               <Empty icon="🥛" title="No milk recorded" hint="Useful for dairy cows and does in milk." />
@@ -439,12 +472,12 @@ export default async function AnimalPage({
                         <td className="td">{m.session}</td>
                         <td className="td tabular-nums">{num(m.litres, 2)}</td>
                         <td className="td text-right">
-                          <form action={deleteLogAction}>
+                          <RecordActions label="Milk record actions"><form action={deleteLogAction}>
                             <input type="hidden" name="kind" value="milk" />
                             <input type="hidden" name="id" value={m.id} />
                             <input type="hidden" name="animalId" value={animal.id} />
-                            <button className="rounded-lg p-1.5 text-muted hover:text-bad"><Icon.trash className="h-4 w-4" /></button>
-                          </form>
+                            <ConfirmSubmit className="record-delete-action" message="Delete this milk record? This cannot be undone.">Delete milk record</ConfirmSubmit>
+                          </form></RecordActions>
                         </td>
                       </tr>
                     ))}
@@ -452,7 +485,7 @@ export default async function AnimalPage({
                 </table>
               </div>
             )}
-          </Section>
+          </Section>}
         </div>
       )}
 
@@ -463,41 +496,14 @@ export default async function AnimalPage({
           </Section>
 
           {animal.photos.length === 0 ? (
-            <Card><Empty icon="📷" title="No photos yet" hint="The first photo you upload becomes the profile picture." /></Card>
+            <Card><Empty icon="📷" title="No photos yet" hint="Tap Face photo for a profile picture, or Body photo for full-body shots and markings." /></Card>
           ) : (
-            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {animal.photos.map((p) => (
-                <li key={p.id} className="card overflow-hidden">
-                  <a href={`/api/photos/${p.id}`} target="_blank" rel="noreferrer">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={`/api/photos/${p.id}?v=thumb`} alt={p.caption ?? animal.name} className="aspect-square w-full object-cover" />
-                  </a>
-                  <div className="flex items-center justify-between gap-2 px-2.5 py-2">
-                    <span className="truncate text-[12.5px] text-muted">{p.caption ?? fmtDate(p.createdAt)}</span>
-                    <div className="flex shrink-0 items-center gap-1">
-                      {animal.profilePhotoId === p.id ? (
-                        <Badge tone="brand">Profile</Badge>
-                      ) : (
-                        <form action={setProfilePhotoAction}>
-                          <input type="hidden" name="animalId" value={animal.id} />
-                          <input type="hidden" name="photoId" value={p.id} />
-                          <button className="text-[12px] text-brand hover:underline">Set profile</button>
-                        </form>
-                      )}
-                      {can.manageAnimals(user.role) && (
-                        <form action={deletePhotoAction}>
-                          <input type="hidden" name="animalId" value={animal.id} />
-                          <input type="hidden" name="photoId" value={p.id} />
-                          <ConfirmSubmit message="Delete this photo?" className="rounded p-1 text-muted hover:text-bad">
-                            <Icon.trash className="h-3.5 w-3.5" />
-                          </ConfirmSubmit>
-                        </form>
-                      )}
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <PhotoLightbox
+              photos={animal.photos.map((p) => ({ id: p.id, caption: p.caption, createdAt: fmtDate(p.createdAt) }))}
+              animalId={animal.id}
+              profilePhotoId={animal.profilePhotoId}
+              canManage={can.manageAnimals(user.role)}
+            />
           )}
         </div>
       )}
@@ -544,6 +550,53 @@ export default async function AnimalPage({
               emptyText="No costs recorded against this animal yet."
             />
           </Section>
+
+          {animal.purchaseBatch && (() => {
+            const b = animal.purchaseBatch;
+            const batchCostTotal = b.costs.reduce((s, c) => s + Number(c.amount), 0);
+            const batchAnimalCount = b.animals.length;
+            const perAnimalShare = batchAnimalCount > 0 ? batchCostTotal / batchAnimalCount : 0;
+            return (
+              <Section
+                title="Batch shared costs"
+                subtitle={`From "${b.name}" — split across ${batchAnimalCount} animals`}
+                action={<Link href={`/batches/${b.id}`} className="text-[13px] text-brand hover:underline">View batch</Link>}
+                className="lg:col-span-2"
+              >
+                {b.costs.length === 0 ? (
+                  <p className="px-4 py-3 text-[13.5px] text-muted">No additional costs in this batch.</p>
+                ) : (
+                  <div className="scroll-x">
+                    <table className="w-full min-w-[400px]">
+                      <thead>
+                        <tr>
+                          <th className="th">Cost item</th>
+                          <th className="th text-right">Total</th>
+                          <th className="th text-right">This animal&apos;s share</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {b.costs.map((c) => (
+                          <tr key={c.id} className="row">
+                            <td className="td">{c.description}</td>
+                            <td className="td text-right tabular-nums">{money(c.amount, settings.currency)}</td>
+                            <td className="td text-right tabular-nums">{money(Number(c.amount) / batchAnimalCount, settings.currency)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="border-t-2 border-line">
+                          <td className="td font-semibold">Total share</td>
+                          <td className="td text-right tabular-nums font-semibold">{money(batchCostTotal, settings.currency)}</td>
+                          <td className="td text-right tabular-nums font-semibold">{money(perAnimalShare, settings.currency)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                )}
+              </Section>
+            );
+          })()}
         </div>
       )}
     </>

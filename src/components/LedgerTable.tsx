@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Fragment, useState, useTransition } from "react";
 import { Avatar, Badge, Field } from "./ui";
 import ActionForm, { SubmitButton, type ActionState } from "./ActionForm";
+import RecordActions from "./RecordActions";
 import ConfirmSubmit from "./ConfirmSubmit";
 import { Icon } from "./icons";
 import { SPECIES } from "@/lib/domain";
@@ -17,11 +18,13 @@ export type LedgerRow = {
   vendor: string | null;
   paymentMethod: string | null;
   reference: string | null;
+  paidBy: string | null;
   type: "INCOME" | "EXPENSE";
   amount: string;
   isAuto: boolean;
   animal: { id: string; name: string; species: keyof typeof SPECIES; profilePhotoId: string | null } | null;
   animalLabel: string | null;
+  equipment: { id: string; name: string } | null;
   usdText: string | null;
 };
 
@@ -34,12 +37,15 @@ type AnimalOpt = { id: string; name: string; tagId: string };
  * in place instead of deleting and re-adding it.
  */
 export default function LedgerTable({
-  rows, currency, animals, categories, deleteOne, deleteSelected, bulkEditSelected, saveTransaction,
+  rows, currency, animals, categories, payers, deleteOne, deleteSelected, bulkEditSelected, saveTransaction, categorizeExpense, expenseCategories,
 }: {
+  categorizeExpense: (prev: ActionState, fd: FormData) => Promise<ActionState>;
+  expenseCategories: string[];
   rows: LedgerRow[];
   currency: string;
   animals: AnimalOpt[];
   categories: string[];
+  payers: string[];
   deleteOne: (fd: FormData) => Promise<void>;
   deleteSelected: (fd: FormData) => Promise<void>;
   bulkEditSelected: (fd: FormData) => Promise<void>;
@@ -50,6 +56,7 @@ export default function LedgerTable({
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [bulkDate, setBulkDate] = useState("");
   const [bulkCategory, setBulkCategory] = useState("");
+  const [bulkPaidBy, setBulkPaidBy] = useState("");
   const [isPending, startTransition] = useTransition();
   const selectableIds = rows.filter((r) => !r.isAuto).map((r) => r.id);
   const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selected.has(id));
@@ -76,24 +83,27 @@ export default function LedgerTable({
   }
 
   function handleBulkEdit() {
-    if (selected.size === 0 || (!bulkDate && !bulkCategory)) return;
-    const what = [bulkDate && "date", bulkCategory && "category"].filter(Boolean).join(" and ");
+    if (selected.size === 0 || (!bulkDate && !bulkCategory && !bulkPaidBy)) return;
+    const what = [bulkDate && "date", bulkCategory && "category", bulkPaidBy && "payer"].filter(Boolean).join(" and ");
     if (!confirm(`Set the ${what} for ${selected.size} selected transaction${selected.size === 1 ? "" : "s"}?`)) return;
     const fd = new FormData();
     selected.forEach((id) => fd.append("ids", id));
     if (bulkDate) fd.append("date", bulkDate);
     if (bulkCategory) fd.append("category", bulkCategory);
+    if (bulkPaidBy) fd.append("paidBy", bulkPaidBy);
     startTransition(async () => {
       await bulkEditSelected(fd);
       setSelected(new Set());
       setBulkEditOpen(false);
       setBulkDate("");
       setBulkCategory("");
+      setBulkPaidBy("");
     });
   }
 
   return (
     <>
+      <datalist id="expense-category-options">{expenseCategories.map(category => <option key={category} value={category} />)}</datalist>
       {selected.size > 0 && (
         <div className="border-b border-line bg-surface2/60 px-4 py-2.5">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -102,9 +112,11 @@ export default function LedgerTable({
               <button type="button" onClick={() => setBulkEditOpen((o) => !o)} className="btn-ghost btn-sm">
                 {bulkEditOpen ? "Cancel edit" : "Edit selected"}
               </button>
-              <button type="button" onClick={handleDeleteSelected} disabled={isPending} className="btn-danger btn-sm">
+              <RecordActions label="Selected transaction actions">
+              <button type="button" onClick={handleDeleteSelected} disabled={isPending} className="record-delete-action">
                 {isPending ? "Deleting…" : "Delete selected"}
               </button>
+              </RecordActions>
             </div>
           </div>
           {bulkEditOpen && (
@@ -119,8 +131,15 @@ export default function LedgerTable({
                 />
                 <datalist id="bulk-edit-cat-opts">{categories.map((c) => <option key={c} value={c} />)}</datalist>
               </Field>
+              <Field label="Paid by" className="w-auto">
+                <input
+                  value={bulkPaidBy} onChange={(e) => setBulkPaidBy(e.target.value)}
+                  list="bulk-edit-payer-opts" className="input w-auto" placeholder="Leave blank to keep"
+                />
+                <datalist id="bulk-edit-payer-opts">{payers.map((p) => <option key={p} value={p} />)}</datalist>
+              </Field>
               <button
-                type="button" onClick={handleBulkEdit} disabled={isPending || (!bulkDate && !bulkCategory)}
+                type="button" onClick={handleBulkEdit} disabled={isPending || (!bulkDate && !bulkCategory && !bulkPaidBy)}
                 className="btn-primary btn-sm"
               >
                 {isPending ? "Applying…" : `Apply to ${selected.size}`}
@@ -130,7 +149,7 @@ export default function LedgerTable({
         </div>
       )}
       <div className="scroll-x">
-        <table className="w-full min-w-[800px]">
+        <table className="w-full min-w-[900px]">
           <thead>
             <tr>
               <th className="th w-8">
@@ -145,7 +164,7 @@ export default function LedgerTable({
                 )}
               </th>
               <th className="th">Date</th><th className="th">Category</th><th className="th">Description</th>
-              <th className="th">Animal</th><th className="th">Vendor</th><th className="th text-right">Amount</th><th className="th"></th>
+              <th className="th">Animal</th><th className="th">Vendor</th><th className="th">Paid by</th><th className="th text-right">Amount</th><th className="th"></th>
             </tr>
           </thead>
           <tbody>
@@ -166,8 +185,21 @@ export default function LedgerTable({
                   <td className="td whitespace-nowrap">{fmtDate(t.date)}</td>
                   <td className="td">
                     <Badge tone={t.type === "INCOME" ? "good" : "muted"}>{t.category}</Badge>
+                    {t.type === "EXPENSE" && !t.isAuto && (
+                      <details className="mt-1" key={`${t.id}:${t.category}`}>
+                        <summary className="cursor-pointer text-[12px] text-brand">Change category</summary>
+                        <ActionForm action={categorizeExpense} className="mt-2 min-w-48 space-y-2">
+                          <input type="hidden" name="id" value={t.id} />
+                          <Field label="Expense category">
+                            <input name="category" required defaultValue={t.category} list="expense-category-options" className="input" />
+                          </Field>
+                          <SubmitButton className="btn-primary btn-sm">Save category</SubmitButton>
+                        </ActionForm>
+                      </details>
+                    )}
+                    {t.type === "EXPENSE" && t.isAuto && <span className="mt-1 block text-[11px] text-muted">Category managed by linked record</span>}
                   </td>
-                  <td className="td">{t.description ?? "—"}</td>
+                  <td className="td">{t.description ?? "—"}{t.equipment && <Link href={`/equipment/${t.equipment.id}`} className="mt-1 block text-[12px] text-brand hover:underline">{t.equipment.name} →</Link>}</td>
                   <td className="td">
                     {t.animal ? (
                       <Link href={`/animals/${t.animal.id}?tab=costs`} className="inline-flex items-center gap-1.5 text-brand hover:underline">
@@ -181,6 +213,7 @@ export default function LedgerTable({
                     ) : "—"}
                   </td>
                   <td className="td text-muted">{t.vendor ?? "—"}</td>
+                  <td className="td">{t.paidBy ? <Badge tone="brand">{t.paidBy}</Badge> : <span className="text-muted">—</span>}</td>
                   <td className={`td text-right font-semibold tabular-nums ${t.type === "INCOME" ? "text-good" : "text-bad"}`}>
                     {t.type === "INCOME" ? "+" : "−"}{money(t.amount, currency)}
                     {t.usdText && <div className="text-[11px] font-normal text-muted">{t.usdText}</div>}
@@ -198,19 +231,17 @@ export default function LedgerTable({
                         >
                           <Icon.pencil className="h-4 w-4" />
                         </button>
-                        <form action={deleteOne}>
+                        <RecordActions label="Transaction actions"><form action={deleteOne}>
                           <input type="hidden" name="id" value={t.id} />
-                          <ConfirmSubmit message="Delete this transaction?" className="rounded-lg p-1.5 text-muted hover:text-bad">
-                            <Icon.trash className="h-4 w-4" />
-                          </ConfirmSubmit>
-                        </form>
+                          <ConfirmSubmit className="record-delete-action" message="Delete this transaction?">Delete transaction</ConfirmSubmit>
+                        </form></RecordActions>
                       </div>
                     )}
                   </td>
                 </tr>
                 {editingId === t.id && (
                   <tr>
-                    <td colSpan={8} className="border-t border-line bg-surface2/40 p-4">
+                    <td colSpan={9} className="border-t border-line bg-surface2/40 p-4">
                       <ActionForm
                         action={saveTransaction}
                         className="grid gap-4 sm:grid-cols-2"
@@ -237,6 +268,10 @@ export default function LedgerTable({
                           </select>
                         </Field>
                         <Field label="Vendor / paid to"><input name="vendor" defaultValue={t.vendor ?? ""} className="input" /></Field>
+                        <Field label="Paid by" hint="Whose money this was">
+                          <input name="paidBy" defaultValue={t.paidBy ?? ""} className="input" list={`edit-payer-opts-${t.id}`} />
+                          <datalist id={`edit-payer-opts-${t.id}`}>{payers.map((p) => <option key={p} value={p} />)}</datalist>
+                        </Field>
                         <Field label="Payment method"><input name="paymentMethod" defaultValue={t.paymentMethod ?? ""} className="input" /></Field>
                         <Field label="Reference / receipt no."><input name="reference" defaultValue={t.reference ?? ""} className="input" /></Field>
                         <div className="flex items-center gap-2 sm:col-span-2">

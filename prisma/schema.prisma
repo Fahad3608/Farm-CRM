@@ -42,6 +42,7 @@ model User {
   transactions    Transaction[]
   feedLogs        FeedLog[]
   auditLogs       AuditLog[]
+  sales           Sale[]
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -50,14 +51,14 @@ model User {
 
 enum Species {
   COW
-  BUFFALO
-  CALF    // Bachra (male) / Bachri (female) — tagged manually, not computed from age
+  BULL
+  BULL_CALF
   HEIFER
+  HEIFER_CALF
   GOAT
+  GOAT_KID
   SHEEP
   HORSE
-  POULTRY
-  OTHER
 }
 
 enum Sex {
@@ -131,6 +132,9 @@ model Animal {
   profilePhotoId String? @unique
   profilePhoto   Photo?  @relation("ProfilePhoto", fields: [profilePhotoId], references: [id], onDelete: SetNull)
 
+  purchaseBatchId String?
+  purchaseBatch   PurchaseBatch? @relation(fields: [purchaseBatchId], references: [id], onDelete: SetNull)
+
   photos          Photo[]          @relation("AnimalPhotos")
   healthRecords   HealthRecord[]
   feedLogs        FeedLog[]
@@ -145,6 +149,7 @@ model Animal {
 
   @@index([species, status])
   @@index([name])
+  @@index([purchaseBatchId])
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -186,6 +191,7 @@ enum HealthRecordType {
   LAB_TEST
   HOOF_CARE
   PREGNANCY_CHECK
+  INSEMINATION
   DEATH_REPORT
   OTHER
 }
@@ -381,6 +387,12 @@ model Transaction {
   // Kept when an animal is deleted, so money already spent can still be
   // attributed to it in the ledger. e.g. "Gauri (COW-001)".
   animalLabel String?
+  equipmentId String?
+  equipment Equipment? @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+  // Whose pocket the money came from — a partner, an investor, or whoever
+  // fronted the cash. Free text so an old entry keeps its label even if that
+  // payer is later removed from the suggestion list; see the Payer model.
+  paidBy String?
   // An expense with no animalId is either unlinked by oversight, or genuinely
   // farm-wide (electricity, general labour...). This distinguishes the two so
   // the Finance page can flag the former without nagging about the latter.
@@ -391,6 +403,10 @@ model Transaction {
   healthRecord   HealthRecord? @relation(fields: [healthRecordId], references: [id], onDelete: Cascade)
   feedLogId      String? @unique
   feedLog        FeedLog? @relation(fields: [feedLogId], references: [id], onDelete: Cascade)
+  batchCostId    String? @unique
+  batchCost      BatchCost? @relation(fields: [batchCostId], references: [id], onDelete: Cascade)
+  saleId         String? @unique
+  sale           Sale? @relation(fields: [saleId], references: [id], onDelete: Cascade)
 
   createdById String?
   createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
@@ -401,6 +417,8 @@ model Transaction {
   @@index([date])
   @@index([type, category])
   @@index([animalId])
+  @@index([paidBy])
+  @@index([equipmentId])
 }
 
 // A category someone has deliberately set up, so it always offers itself as
@@ -419,6 +437,18 @@ model Category {
   createdAt DateTime @default(now())
 
   @@unique([name, type])
+}
+
+// Someone who puts money into the farm — a partner, a family member, an
+// investor. Named here so every payer is offered as a suggestion and so
+// Finance can total what each one has funded. Removing a payer only drops
+// the suggestion; transactions keep the name they were saved with.
+model Payer {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  notes     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -441,4 +471,142 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Purchase batches — grouping animals bought on the same trip
+// with shared costs (transport, market fees, helpers) that are
+// divided equally among the animals in the batch.
+// ─────────────────────────────────────────────────────────────
+
+model PurchaseBatch {
+  id    String   @id @default(cuid())
+  name  String
+  date  DateTime
+  notes String?
+
+  animals Animal[]
+  costs   BatchCost[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model BatchCost {
+  id          String   @id @default(cuid())
+  batchId     String
+  batch       PurchaseBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  description String
+  amount      Decimal  @db.Decimal(12, 2)
+
+  transaction Transaction?
+
+  createdAt DateTime @default(now())
+
+  @@index([batchId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Customers / buyers — who buys what, at what rate, and every
+// delivery logged against that rate.
+// ─────────────────────────────────────────────────────────────
+
+model Customer {
+  id      String  @id @default(cuid())
+  name    String
+  phone   String?
+  address String?
+  notes   String?
+  active  Boolean @default(true)
+
+  rates CustomerRate[]
+  sales Sale[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+}
+
+// A standing arrangement: this buyer takes this product at this price per
+// unit. `dailyQty` is what they normally take in a day — it drives the
+// per-day / per-month income projection and pre-fills the quantity when a
+// delivery is logged.
+model CustomerRate {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  product   String                          // Milk, Manure, Ghee...
+  unit      String   @default("litre")
+  unitPrice Decimal  @db.Decimal(12, 2)
+  dailyQty  Decimal? @db.Decimal(12, 3)
+  category  String   @default("Milk Sales") // income category used in the ledger
+  active    Boolean  @default(true)
+  notes     String?
+
+  sales Sale[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([customerId, product])
+}
+
+// One delivery to one buyer. Product, unit and price are copied onto the row,
+// so changing a rate later never rewrites what was already sold. Each sale
+// auto-creates a linked income Transaction, the same way health records,
+// feed logs and batch costs do.
+model Sale {
+  id         String        @id @default(cuid())
+  customerId String
+  customer   Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  rateId     String?
+  rate       CustomerRate? @relation(fields: [rateId], references: [id], onDelete: SetNull)
+
+  date      DateTime
+  product   String
+  unit      String
+  quantity  Decimal @db.Decimal(12, 3)
+  unitPrice Decimal @db.Decimal(12, 2)
+  amount    Decimal @db.Decimal(12, 2)
+  category  String
+  notes     String?
+
+  transaction Transaction?
+
+  createdById String?
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([customerId, date])
+  @@index([date])
+}
+
+
+// Items being built for the farm; expenses remain in the single finance ledger.
+enum EquipmentStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum EquipmentKind {
+  EQUIPMENT
+  CONSTRUCTION
+}
+
+model Equipment {
+  id String @id @default(cuid())
+  name String
+  kind EquipmentKind @default(EQUIPMENT)
+  status EquipmentStatus @default(PLANNED)
+  location String?
+  notes String?
+  transactions Transaction[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
 }

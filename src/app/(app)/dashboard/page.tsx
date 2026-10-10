@@ -93,8 +93,8 @@ export default async function Dashboard() {
       />
 
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile label="Animals on farm" value={totalActive} hint={`${young} young · ${totalActive - young} adult`} href="/animals" />
-        <StatTile label="Expecting" value={pregnant.length} hint={dueBirths ? `${dueBirths} due within 30 days` : "No births due soon"} href="/breeding" tone={pregnant.length ? "brand" : "muted"} />
+        <StatTile label="Animals on farm" tone="brand" value={totalActive} hint={`${young} young · ${totalActive - young} adult`} href="/animals" />
+        <StatTile label="Expecting" value={pregnant.length} hint={dueBirths ? `${dueBirths} due within 30 days` : "No births due soon"} href="/breeding" tone={pregnant.length ? "accent" : "muted"} />
         <StatTile label="Health follow-ups" value={dueFollowUps.length} hint="Due in the next 30 days" href="/health" tone={dueFollowUps.length ? "warn" : "muted"} />
         {showMoney ? (
           <StatTile
