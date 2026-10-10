@@ -59,6 +59,9 @@ export default async function SettingsPage() {
             <Field label="Weight unit">
               <select name="weightUnit" defaultValue={settings.weightUnit} className="input"><option value="kg">Kilograms (kg)</option><option value="lb">Pounds (lb)</option></select>
             </Field>
+            <Field label={`Milk rate (${settings.currency} / litre)`} hint="Used to estimate milk revenue on the Milk page">
+              <input name="milkRate" inputMode="decimal" defaultValue={settings.milkRate} className="input" placeholder="180" />
+            </Field>
             <div className="sm:col-span-2"><SubmitButton>Save settings</SubmitButton></div>
           </ActionForm>
         </Section>

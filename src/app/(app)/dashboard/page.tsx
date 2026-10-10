@@ -105,7 +105,7 @@ export default async function Dashboard() {
             href="/finance"
           />
         ) : (
-          <StatTile label="Milk this month" value={`${num(milkMonth._sum.litres, 1)} L`} hint="All animals" />
+          <StatTile label="Milk this month" value={`${num(milkMonth._sum.litres, 1)} L`} hint="All animals" href="/milk" />
         )}
       </div>
 
@@ -178,6 +178,21 @@ export default async function Dashboard() {
 
         {showMoney && (
           <>
+            <Section title="Milk this month" subtitle={`${num(milkMonth._sum.litres, 1)} litres`} action={<Link href="/milk" className="text-[13px] text-brand hover:underline">All milk</Link>}>
+              <div className="px-4 py-3">
+                <div className="flex items-baseline gap-3">
+                  <span className="text-[22px] font-semibold">{num(milkMonth._sum.litres, 1)} L</span>
+                  {Number(settings.milkRate) > 0 && (
+                    <span className="text-[14px] text-good font-medium">
+                      {money(Number(milkMonth._sum.litres ?? 0) * Number(settings.milkRate), settings.currency)} est. revenue
+                    </span>
+                  )}
+                </div>
+                {Number(settings.milkRate) > 0 && (
+                  <p className="mt-1 text-[12.5px] text-muted">@ {money(Number(settings.milkRate), settings.currency)} / litre — change the rate in Settings</p>
+                )}
+              </div>
+            </Section>
             <Section title="This month's spending" subtitle="By category">
               <BarList
                 items={[...expenseByCategory.entries()]

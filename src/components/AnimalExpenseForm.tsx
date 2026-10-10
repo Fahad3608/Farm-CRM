@@ -23,7 +23,7 @@ export default function AnimalExpenseForm({ animalId, currency }: { animalId: st
       </Field>
       <Field label="Date *"><input type="date" name="date" required defaultValue={today} className="input" /></Field>
       <Field label="Category *">
-        <input name="category" required className="input" list="animal-expense-cat-opts" placeholder={type === "EXPENSE" ? "Transport" : "Milk Sales"} key={type} />
+        <input name="category" required className="input" list="animal-expense-cat-opts" placeholder={type === "EXPENSE" ? "Transport" : "Doodh (Milk Sales)"} key={type} />
         <datalist id="animal-expense-cat-opts">{categories.map((c) => <option key={c} value={c} />)}</datalist>
       </Field>
       <Field label={`Amount (${currency}) *`}><input name="amount" required inputMode="decimal" className="input" placeholder="0" /></Field>
@@ -31,7 +31,7 @@ export default function AnimalExpenseForm({ animalId, currency }: { animalId: st
       <Field label="Vendor / paid to"><input name="vendor" className="input" /></Field>
       <Field label="Payment method">
         <input name="paymentMethod" className="input" list="animal-expense-pay-opts" />
-        <datalist id="animal-expense-pay-opts"><option value="Cash" /><option value="Bank transfer" /><option value="Mobile wallet" /><option value="Cheque" /><option value="Credit" /></datalist>
+        <datalist id="animal-expense-pay-opts"><option value="Cash" /><option value="Bank transfer" /><option value="JazzCash" /><option value="Easypaisa" /><option value="Cheque" /><option value="Credit" /></datalist>
       </Field>
       <div className="sm:col-span-2"><SubmitButton>{type === "EXPENSE" ? "Log expense" : "Log income"}</SubmitButton></div>
     </ActionForm>

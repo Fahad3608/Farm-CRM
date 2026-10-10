@@ -18,6 +18,7 @@ export async function saveFarmSettingsAction(_prev: State, fd: FormData): Promis
     ["farmName", reqStr(fd, "farmName", "Farm name")],
     ["currency", (str(fd, "currency") ?? "PKR").toUpperCase().slice(0, 3)],
     ["weightUnit", str(fd, "weightUnit") ?? "kg"],
+    ["milkRate", str(fd, "milkRate") ?? "180"],
   ];
 
   for (const [key, value] of entries) {

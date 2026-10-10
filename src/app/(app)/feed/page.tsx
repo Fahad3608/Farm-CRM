@@ -64,10 +64,19 @@ export default async function FeedPage() {
           <Disclosure label="Add feed type" tone="ghost">
             <Card className="p-4">
               <ActionForm action={saveFeedTypeAction} className="grid gap-4 sm:grid-cols-2" resetOnSuccess>
-                <Field label="Feed name *"><input name="name" required className="input" placeholder="Wheat straw" /></Field>
+                <Field label="Feed name *">
+                  <input name="name" required className="input" list="feed-name-opts" placeholder="Bhoosa (Wheat Straw)" />
+                  <datalist id="feed-name-opts">
+                    <option value="Bhoosa (Wheat Straw)" /><option value="Toori (Mustard Straw)" />
+                    <option value="Barseem" /><option value="Lucerne (Rijka)" /><option value="Jantar (Sorghum)" />
+                    <option value="Makai Silage" /><option value="Sarson Khal (Mustard Cake)" />
+                    <option value="Binola Khal (Cotton Cake)" /><option value="Wanda (Concentrate Mix)" />
+                    <option value="Choker (Wheat Bran)" /><option value="Gur / Raab (Molasses)" /><option value="Mineral Mix" />
+                  </datalist>
+                </Field>
                 <Field label="Category">
                   <input name="category" className="input" list="feed-cat" placeholder="Roughage" />
-                  <datalist id="feed-cat"><option value="Roughage" /><option value="Concentrate" /><option value="Green fodder" /><option value="Silage" /><option value="Supplement" /><option value="Mineral / vitamin" /></datalist>
+                  <datalist id="feed-cat"><option value="Roughage" /><option value="Concentrate" /><option value="Green fodder" /><option value="Silage" /><option value="Supplement" /><option value="Mineral / vitamin" /><option value="Oil cake / Khal" /></datalist>
                 </Field>
                 <Field label="Unit"><input name="unit" defaultValue="kg" className="input" /></Field>
                 <Field label={`Cost per unit (${settings.currency})`}><input name="costPerUnit" inputMode="decimal" className="input" placeholder="0" /></Field>

@@ -310,7 +310,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
               <Field label="Vendor / paid to"><input name="vendor" className="input" /></Field>
               <Field label="Payment method">
                 <input name="paymentMethod" className="input" list="pay-opts" />
-                <datalist id="pay-opts"><option value="Cash" /><option value="Bank transfer" /><option value="Mobile wallet" /><option value="Cheque" /><option value="Credit" /></datalist>
+                <datalist id="pay-opts"><option value="Cash" /><option value="Bank transfer" /><option value="JazzCash" /><option value="Easypaisa" /><option value="Cheque" /><option value="Credit" /></datalist>
               </Field>
               <Field label="Reference / receipt no."><input name="reference" className="input" /></Field>
               <div className="sm:col-span-2"><SubmitButton>Save transaction</SubmitButton></div>

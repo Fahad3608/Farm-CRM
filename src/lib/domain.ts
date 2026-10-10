@@ -101,14 +101,15 @@ export const BREEDING_STATUS_LABEL: Record<BreedingStatus, string> = {
 export const ROUTES = ["IM (intramuscular)", "SC (subcutaneous)", "IV (intravenous)", "Oral", "Topical", "Intranasal", "Intramammary"];
 
 export const EXPENSE_CATEGORIES = [
-  "Feed", "Veterinary", "Medicine", "Animal Purchase", "Labour / Wages",
-  "Equipment", "Transport", "Utilities", "Shed / Maintenance", "Breeding / AI",
-  "Insurance", "Other Expense",
+  "Feed", "Chaara (Green Fodder)", "Wanda / Khal", "Veterinary", "Medicine",
+  "Animal Purchase", "Dewar / Labour", "Equipment", "Transport",
+  "Bijli / Utilities", "Tube Well / Water", "Shed / Maintenance",
+  "Breeding / AI", "Insurance", "Other Expense",
 ];
 
 export const INCOME_CATEGORIES = [
-  "Milk Sales", "Animal Sale", "Manure Sales", "Breeding Service",
-  "Wool / Hair", "Subsidy / Grant", "Other Income",
+  "Doodh (Milk Sales)", "Animal Sale", "Gobar (Manure)", "Desi Ghee",
+  "Lassi", "Breeding Service", "Wool / Hair", "Subsidy / Grant", "Other Income",
 ];
 
 /**
@@ -123,11 +124,16 @@ export type CategoryGroup = (typeof CATEGORY_GROUPS)[number];
 
 export const DEFAULT_CATEGORY_GROUP: Record<string, CategoryGroup> = {
   "Feed": "Operational",
+  "Chaara (Green Fodder)": "Operational",
+  "Wanda / Khal": "Operational",
   "Veterinary": "Operational",
   "Medicine": "Operational",
+  "Dewar / Labour": "Operational",
   "Labour / Wages": "Operational",
   "Transport": "Operational",
+  "Bijli / Utilities": "Operational",
   "Utilities": "Operational",
+  "Tube Well / Water": "Operational",
   "Breeding / AI": "Operational",
   "Insurance": "Operational",
   "Animal Purchase": "Animal Purchases",
@@ -140,6 +146,21 @@ export const DEFAULT_CATEGORY_GROUP: Record<string, CategoryGroup> = {
 export function categoryGroupOf(name: string, assigned: Map<string, string>): string {
   return assigned.get(name) ?? DEFAULT_CATEGORY_GROUP[name] ?? "Other";
 }
+
+export const FEED_SUGGESTIONS: { name: string; category: string; unit: string }[] = [
+  { name: "Bhoosa (Wheat Straw)", category: "Roughage", unit: "kg" },
+  { name: "Toori (Mustard Straw)", category: "Roughage", unit: "kg" },
+  { name: "Barseem", category: "Green fodder", unit: "kg" },
+  { name: "Lucerne (Rijka)", category: "Green fodder", unit: "kg" },
+  { name: "Jantar (Sorghum)", category: "Green fodder", unit: "kg" },
+  { name: "Makai Silage", category: "Silage", unit: "kg" },
+  { name: "Sarson Khal (Mustard Cake)", category: "Concentrate", unit: "kg" },
+  { name: "Binola Khal (Cotton Cake)", category: "Concentrate", unit: "kg" },
+  { name: "Wanda (Concentrate Mix)", category: "Concentrate", unit: "kg" },
+  { name: "Choker (Wheat Bran)", category: "Concentrate", unit: "kg" },
+  { name: "Gur / Raab (Molasses)", category: "Supplement", unit: "kg" },
+  { name: "Mineral Mix", category: "Mineral / vitamin", unit: "kg" },
+];
 
 /** Common vaccines by species — used as quick-pick suggestions for the vet. */
 export const VACCINE_SUGGESTIONS: Partial<Record<Species, string[]>> = {
