@@ -15,13 +15,13 @@ import { categorizeExpenseAction, bulkEditSelectedTransactionsAction, deleteFilt
 import MonthlyExpenses from "@/components/MonthlyExpenses";
 import { monthlyExpenses } from "@/lib/monthlyExpenses";
 import LedgerTable, { type LedgerRow } from "@/components/LedgerTable";
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, NO_PAYER, categoryGroupOf } from "@/lib/domain";
+import { EXPENSE_CATEGORIES, NO_PAYER, categoryGroupOf } from "@/lib/domain";
 import { fmtDate, money } from "@/lib/format";
 import { historicalRates, isoDate } from "@/lib/fx";
 
 export const dynamic = "force-dynamic";
 
-type Search = { from?: string; to?: string; type?: string; category?: string | string[]; paidBy?: string; page?: string; fx?: string };
+type Search = { from?: string; to?: string; category?: string | string[]; paidBy?: string; page?: string; fx?: string };
 
 function toParams(sp: Search) {
   const p = new URLSearchParams();
@@ -61,7 +61,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
 
   const where = {
     date: { gte: from, lte: to },
-    ...(sp.type && sp.type !== "ALL" ? { type: sp.type as never } : {}),
+    type: "EXPENSE" as const,
     ...(selectedCategories.length > 0 ? { category: { in: selectedCategories } } : {}),
     ...paidByWhere,
   };
@@ -109,9 +109,9 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
   // so a category you've typed once (or created ahead of time) always
   // shows up as a suggestion everywhere else.
   const allCategories = [...new Set([
-    ...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES,
-    ...dbCategories.map((c) => c.name),
-    ...usedCategories.map((c) => c.category),
+    ...EXPENSE_CATEGORIES,
+    ...dbCategories.filter((c) => c.type === "EXPENSE").map((c) => c.name),
+    ...usedCategories.filter((c) => c.type === "EXPENSE").map((c) => c.category),
   ])].sort();
 
   // Everyone who could be picked as a payer: the ones set up in Settings plus
@@ -221,11 +221,6 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       <form className="mb-4 flex flex-wrap items-end gap-2" action="/finance">
         <Field label="From"><input type="date" name="from" defaultValue={dateVal(from)} className="input w-auto" /></Field>
         <Field label="To"><input type="date" name="to" defaultValue={dateVal(to)} className="input w-auto" /></Field>
-        <Field label="Type">
-          <select name="type" defaultValue={sp.type ?? "ALL"} className="input w-auto">
-            <option value="ALL">All</option><option value="INCOME">Income</option><option value="EXPENSE">Expense</option>
-          </select>
-        </Field>
         <Field label="Category" hint="Pick one or more — leave none checked for all">
           <details className="relative">
             <summary className="input w-auto cursor-pointer list-none select-none">
@@ -316,10 +311,8 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
         <Disclosure label="Add transaction">
           <Card className="p-4">
             <ActionForm action={saveTransactionAction} className="grid gap-4 sm:grid-cols-2" resetOnSuccess>
-              <Field label="Type">
-                <select name="type" className="input"><option value="EXPENSE">Expense</option><option value="INCOME">Income</option></select>
-              </Field>
-              <Field label="Date *"><input type="date" name="date" required defaultValue={dateVal(now)} className="input" /></Field>
+              <input type="hidden" name="type" value="EXPENSE" />
+              <Field label="Date *" className="sm:col-span-2"><input type="date" name="date" required defaultValue={dateVal(now)} className="input" /></Field>
               <Field label="Category *">
                 <input name="category" required className="input" list="cat-opts" placeholder="Feed" />
                 <datalist id="cat-opts">{allCategories.map((c) => <option key={c} value={c} />)}</datalist>
@@ -352,10 +345,8 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
         <Disclosure label="Add multiple expenses" tone="ghost">
           <Card className="p-4">
             <ActionForm action={saveBulkTransactionsAction} className="flex flex-col gap-4" resetOnSuccess>
+              <input type="hidden" name="type" value="EXPENSE" />
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Type">
-                  <select name="type" className="input"><option value="EXPENSE">Expense</option><option value="INCOME">Income</option></select>
-                </Field>
                 <Field label="Date *" hint="Applies to every line below">
                   <input type="date" name="date" required defaultValue={dateVal(now)} className="input" />
                 </Field>
@@ -487,7 +478,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
                 <RecordActions label="Ledger actions"><form action={deleteFilteredTransactionsAction}>
                   <input type="hidden" name="from" value={dateVal(from)} />
                   <input type="hidden" name="to" value={dateVal(to)} />
-                  <input type="hidden" name="type" value={sp.type ?? "ALL"} />
+                  <input type="hidden" name="type" value="EXPENSE" />
                   <input type="hidden" name="paidBy" value={payerFilter} />
                   {selectedCategories.map((c) => <input key={c} type="hidden" name="category" value={c} />)}
                   <ConfirmSubmit className="record-delete-action"
@@ -509,7 +500,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
               <form action={editFilteredTransactionsAction} className="mt-3 flex flex-wrap items-end gap-2">
                 <input type="hidden" name="from" value={dateVal(from)} />
                 <input type="hidden" name="to" value={dateVal(to)} />
-                <input type="hidden" name="type" value={sp.type ?? "ALL"} />
+                <input type="hidden" name="type" value="EXPENSE" />
                 <input type="hidden" name="paidBy" value={payerFilter} />
                 {selectedCategories.map((c) => <input key={c} type="hidden" name="category" value={c} />)}
                 <Field label="New date"><input type="date" name="setDate" className="input w-auto" /></Field>

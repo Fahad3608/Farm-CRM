@@ -90,13 +90,11 @@ export default async function SettingsPage() {
         </Section>
 
         {can.editFinance(me.role) && (
-          <Section title="Expense & income categories" subtitle="Always offered as a suggestion on Finance, even before you've used them" className="lg:col-span-2">
+          <Section title="Expense categories" subtitle="Always offered as a suggestion on Finance, even before you've used them" className="lg:col-span-2">
             <div className="border-b border-line p-4">
               <ActionForm action={createCategoryAction} className="flex flex-wrap items-end gap-3" resetOnSuccess>
                 <Field label="Name *"><input name="name" required className="input w-auto" placeholder="Dewar Labour" /></Field>
-                <Field label="Type">
-                  <select name="type" className="input w-auto"><option value="EXPENSE">Expense</option><option value="INCOME">Income</option></select>
-                </Field>
+                <input type="hidden" name="type" value="EXPENSE" />
                 <SubmitButton>Add category</SubmitButton>
               </ActionForm>
             </div>

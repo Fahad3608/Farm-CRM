@@ -106,6 +106,7 @@ export const EXPENSE_CATEGORIES = [
   "Bijli / Utilities", "Utilities", "Tube Well / Water",
   "Farm Rent", "Operational Cost", "Shed / Maintenance",
   "Breeding / AI", "Batch Cost", "Insurance",
+  "Farm Camera SIM data",
   "Loan - Javed", "Tenent Advance", "mics",
   "Other Expense",
 ];
@@ -155,6 +156,7 @@ export const DEFAULT_CATEGORY_GROUP: Record<string, CategoryGroup> = {
   "Batch Cost": "Operational",
   "Insurance": "Operational",
   "Shed / Maintenance": "Capital & Construction",
+  "Farm Camera SIM data": "Operational",
   "Other Expense": "Other",
 };
 

@@ -5,7 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { getSettings } from "@/lib/settings";
 import { Avatar, Badge, Empty, PageHeader, Section, StatTile } from "@/components/ui";
-import { BarList, IncomeExpenseChart } from "@/components/charts";
+import { BarList } from "@/components/charts";
 import { SPECIES, HEALTH_TYPE } from "@/lib/domain";
 import { ageFrom, fmtDate, money, relativeDue } from "@/lib/format";
 import { Icon } from "@/components/icons";
@@ -22,9 +22,8 @@ export default async function Dashboard() {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const in30 = new Date(now.getTime() + 30 * 86400000);
-  const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
 
-  const [bySpecies, active, pregnant, dueFollowUps, dueBirths, recentHealth, monthTxns, txnRange] =
+  const [bySpecies, active, pregnant, dueFollowUps, dueBirths, recentHealth, monthExpense, txnRange] =
     await Promise.all([
       prisma.animal.groupBy({ by: ["species"], where: { status: "ACTIVE" }, _count: true }),
       prisma.animal.findMany({
@@ -49,10 +48,10 @@ export default async function Dashboard() {
         include: { animal: { select: { id: true, name: true, tagId: true, species: true, profilePhotoId: true } } },
       }),
       showMoney
-        ? prisma.transaction.groupBy({ by: ["type"], where: { date: { gte: monthStart } }, _sum: { amount: true } })
-        : Promise.resolve([]),
+        ? prisma.transaction.aggregate({ where: { type: "EXPENSE", date: { gte: monthStart } }, _sum: { amount: true } })
+        : Promise.resolve({ _sum: { amount: null } }),
       showMoney
-        ? prisma.transaction.findMany({ where: { date: { gte: sixMonthsAgo } }, select: { date: true, type: true, amount: true, category: true } })
+        ? prisma.transaction.findMany({ where: { type: "EXPENSE", date: { gte: monthStart } }, select: { date: true, type: true, amount: true, category: true } })
         : Promise.resolve([]),
     ]);
 
@@ -62,24 +61,10 @@ export default async function Dashboard() {
     return age !== null && age.months < SPECIES[a.species].matureMonths;
   }).length;
 
-  const income = Number(monthTxns.find((t) => t.type === "INCOME")?._sum.amount ?? 0);
-  const expense = Number(monthTxns.find((t) => t.type === "EXPENSE")?._sum.amount ?? 0);
-
-  // Last 6 months, oldest first.
-  const months = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
-    return { key: `${d.getFullYear()}-${d.getMonth()}`, month: d.toLocaleDateString(undefined, { month: "short", year: "2-digit" }), income: 0, expense: 0 };
-  });
-  const byKey = new Map(months.map((m) => [m.key, m]));
-  for (const t of txnRange) {
-    const d = new Date(t.date);
-    const m = byKey.get(`${d.getFullYear()}-${d.getMonth()}`);
-    if (m) m[t.type === "INCOME" ? "income" : "expense"] += Number(t.amount);
-  }
+  const expense = Number(monthExpense._sum.amount ?? 0);
 
   const expenseByCategory = new Map<string, number>();
   for (const t of txnRange) {
-    if (t.type !== "EXPENSE" || new Date(t.date) < monthStart) continue;
     expenseByCategory.set(t.category, (expenseByCategory.get(t.category) ?? 0) + Number(t.amount));
   }
 
@@ -97,10 +82,10 @@ export default async function Dashboard() {
         <StatTile label="Health follow-ups" value={dueFollowUps.length} hint="Due in the next 30 days" href="/health" tone={dueFollowUps.length ? "warn" : "muted"} />
         {showMoney && (
           <StatTile
-            label="This month's net"
-            value={money(income - expense, settings.currency)}
-            hint={`${money(income, settings.currency)} in · ${money(expense, settings.currency)} out`}
-            tone={income - expense >= 0 ? "good" : "bad"}
+            label="This month's spend"
+            value={money(expense, settings.currency)}
+            hint="Total expenses so far"
+            tone="bad"
             href="/finance"
           />
         )}
@@ -117,8 +102,13 @@ export default async function Dashboard() {
         </Section>
 
         {showMoney ? (
-          <Section title="Income vs expenses" subtitle="Last 6 months">
-            <IncomeExpenseChart data={months} currency={settings.currency} />
+          <Section title="This month's spending" subtitle="By category">
+            <BarList
+              items={[...expenseByCategory.entries()]
+                .map(([label, value]) => ({ label, value, display: money(value, settings.currency) }))
+                .sort((a, b) => b.value - a.value)}
+              emptyText="No expenses this month."
+            />
           </Section>
         ) : (
           <Section title="Recent health activity">
@@ -174,19 +164,9 @@ export default async function Dashboard() {
         </Section>
 
         {showMoney && (
-          <>
-            <Section title="This month's spending" subtitle="By category">
-              <BarList
-                items={[...expenseByCategory.entries()]
-                  .map(([label, value]) => ({ label, value, display: money(value, settings.currency) }))
-                  .sort((a, b) => b.value - a.value)}
-                emptyText="No expenses this month."
-              />
-            </Section>
-            <Section title="Recent health activity" action={<Link href="/health" className="text-[13px] text-brand hover:underline">All</Link>}>
-              <RecentHealth items={recentHealth} />
-            </Section>
-          </>
+          <Section title="Recent health activity" action={<Link href="/health" className="text-[13px] text-brand hover:underline">All</Link>}>
+            <RecentHealth items={recentHealth} />
+          </Section>
         )}
       </div>
     </>
