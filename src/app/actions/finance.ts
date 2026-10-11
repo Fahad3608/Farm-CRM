@@ -97,106 +97,28 @@ export async function saveBulkTransactionsAction(_prev: State, fd: FormData): Pr
   return { ok: "Saved." };
 }
 
-/** Links an existing unlinked expense to an animal, from the "needs review" list. */
+/** Puts a feed cost against one animal, from the Feed page's cost list. */
 export async function linkTransactionAnimalAction(fd: FormData) {
   const user = await requireUser();
   if (!can.editFinance(user.role)) throw new Error("Not permitted.");
   const id = reqStr(fd, "id");
   const animalId = reqStr(fd, "animalId", "Animal");
   await prisma.transaction.update({ where: { id }, data: { animalId, notAnimalSpecific: false } });
+  revalidatePath("/feed");
   revalidatePath("/finance");
   revalidatePath("/equipment", "layout");
   revalidatePath(`/animals/${animalId}`);
 }
 
-/** Marks an expense as genuinely farm-wide, so it stops showing up as "needs review". */
+/** Marks a cost as genuinely farm-wide, so it stops asking to be assigned. */
 export async function markNotAnimalSpecificAction(fd: FormData) {
   const user = await requireUser();
   if (!can.editFinance(user.role)) throw new Error("Not permitted.");
   const id = reqStr(fd, "id");
-  await prisma.transaction.update({ where: { id }, data: { notAnimalSpecific: true } });
+  await prisma.transaction.update({ where: { id }, data: { animalId: null, notAnimalSpecific: true } });
+  revalidatePath("/feed");
   revalidatePath("/finance");
   revalidatePath("/equipment", "layout");
-}
-
-/**
- * Deletes every transaction matching the Finance page's current filter
- * (date range, type, one or more categories) in one go, e.g. to undo a bulk
- * paste that went in under the wrong category. No categories checked means
- * the filter isn't applied. Auto-linked rows (from a health, feed, batch cost
- * or customer delivery record) are left alone, same as the single delete.
- */
-export async function deleteFilteredTransactionsAction(fd: FormData) {
-  const user = await requireUser();
-  if (!can.editFinance(user.role)) throw new Error("Not permitted.");
-
-  const from = reqStr(fd, "from", "From");
-  const to = reqStr(fd, "to", "To");
-  const type = str(fd, "type");
-  const categories = fd.getAll("category").map(String).filter(Boolean);
-  const paidBy = str(fd, "paidBy");
-
-  await prisma.transaction.deleteMany({
-    where: {
-      date: { gte: new Date(`${from}T00:00:00`), lte: new Date(`${to}T23:59:59`) },
-      ...(categories.length > 0 ? { category: { in: categories } } : {}),
-      ...(type && type !== "ALL" ? { type: type as TxnType } : {}),
-      ...(paidBy === NO_PAYER ? { paidBy: null } : paidBy ? { paidBy } : {}),
-      healthRecordId: null,
-      feedLogId: null,
-      batchCostId: null,
-      saleId: null,
-    },
-  });
-
-  revalidatePath("/finance");
-  revalidatePath("/equipment", "layout");
-  revalidatePath("/dashboard");
-}
-
-/**
- * Applies a new date and/or category to every transaction matching the
- * Finance page's current filter — the same multi-category checklist as the
- * filtered delete, so a whole family of categories (Material cost, Labour
- * cost...) can be corrected together without selecting each row by hand.
- * Auto-linked rows are left alone.
- */
-export async function editFilteredTransactionsAction(fd: FormData) {
-  const user = await requireUser();
-  if (!can.editFinance(user.role)) throw new Error("Not permitted.");
-
-  const from = reqStr(fd, "from", "From");
-  const to = reqStr(fd, "to", "To");
-  const type = str(fd, "type");
-  const categories = fd.getAll("category").map(String).filter(Boolean);
-  const paidBy = str(fd, "paidBy");
-
-  const setDate = str(fd, "setDate");
-  const setCategory = str(fd, "setCategory");
-  const setPaidBy = str(fd, "setPaidBy");
-  const data: { date?: Date; category?: string; paidBy?: string } = {};
-  if (setDate) data.date = new Date(`${setDate}T12:00:00`);
-  if (setCategory) data.category = setCategory;
-  if (setPaidBy) data.paidBy = setPaidBy;
-  if (Object.keys(data).length === 0) return;
-
-  await prisma.transaction.updateMany({
-    where: {
-      date: { gte: new Date(`${from}T00:00:00`), lte: new Date(`${to}T23:59:59`) },
-      ...(categories.length > 0 ? { category: { in: categories } } : {}),
-      ...(type && type !== "ALL" ? { type: type as TxnType } : {}),
-      ...(paidBy === NO_PAYER ? { paidBy: null } : paidBy ? { paidBy } : {}),
-      healthRecordId: null,
-      feedLogId: null,
-      batchCostId: null,
-      saleId: null,
-    },
-    data,
-  });
-
-  revalidatePath("/finance");
-  revalidatePath("/equipment", "layout");
-  revalidatePath("/dashboard");
 }
 
 /**

@@ -14,8 +14,7 @@ import { createPayerAction, deletePayerAction, renamePayerAction } from "@/app/a
 import { backfillPurchaseTransactionsAction, deduplicatePurchaseTransactionsAction } from "@/app/actions/animals";
 import { backfillBatchCostTransactionsAction } from "@/app/actions/batches";
 import { fmtDate, money } from "@/lib/format";
-import { CATEGORY_GROUPS, EXPENSE_CATEGORIES, categoryGroupOf } from "@/lib/domain";
-import { EXPENSE_GROUP_LABELS } from "@/lib/monthlyExpenses";
+import { CATEGORY_GROUPS, EXPENSE_CATEGORIES, EXPENSE_GROUP_LABELS, categoryGroupOf } from "@/lib/domain";
 import AutoSubmitSelect from "@/components/AutoSubmitSelect";
 
 export const dynamic = "force-dynamic";

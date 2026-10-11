@@ -111,58 +111,97 @@ export const EXPENSE_CATEGORIES = [
   "Other Expense",
 ];
 
+/**
+ * Expense categories that are feed spend. These are managed from the Feed
+ * page — where a cost can be put against one animal or marked farm-wide —
+ * rather than from Finance, which only reports on them.
+ */
+export const FEED_EXPENSE_CATEGORIES = [
+  "Feed", "Feeding Cost", "Direct Purchase - Feed", "Chaara (Green Fodder)", "Wanda / Khal",
+];
+
 export const INCOME_CATEGORIES = [
   "Doodh (Milk Sales)", "Animal Sale", "Gobar (Manure)", "Desi Ghee",
   "Lassi", "Breeding Service", "Wool / Hair", "Subsidy / Grant", "Other Income",
 ];
 
 /**
- * Higher-level buckets an expense category rolls up into, for the Finance
- * page's "Expenses by group" and "Monthly operational cost" views. A
- * category's group is whatever's set in Settings; these are just the
- * starting points for the built-in categories, and the fallback for any
- * category no one has grouped yet.
+ * The "Main Category" an expense's sub-category rolls up into, matching the
+ * farm's master spreadsheet. A category's group is whatever's set in
+ * Settings; these are just the starting points for the built-in categories,
+ * and the fallback for any category no one has grouped yet.
  */
-export const CATEGORY_GROUPS = ["Operational", "Capital & Construction", "Animal Purchases", "Other"] as const;
+export const CATEGORY_GROUPS = [
+  "Monthly Operational Cost", "Running Expense", "Fix Cost", "Misc", "To be Received",
+] as const;
 export type CategoryGroup = (typeof CATEGORY_GROUPS)[number];
 
 export const DEFAULT_CATEGORY_GROUP: Record<string, CategoryGroup> = {
-  "Feed": "Operational",
-  "Feeding Cost": "Operational",
-  "Direct Purchase - Feed": "Operational",
-  "Chaara (Green Fodder)": "Operational",
-  "Wanda / Khal": "Operational",
-  "Vet Cost": "Operational",
-  "Worker Salary": "Operational",
-  "Labour Cost": "Operational",
-  "Operational Cost": "Operational",
-  "Farm Rent": "Operational",
-  "Construction": "Capital & Construction",
-  "Equipment": "Capital & Construction",
-  "Animal Purchase": "Animal Purchases",
-  "Loan - Javed": "Other",
-  "Tenent Advance": "Other",
-  "mics": "Other",
-  "Veterinary": "Operational",
-  "Medicine": "Operational",
-  "Dewar / Labour": "Operational",
-  "Labour / Wages": "Operational",
-  "Caretaker Salary": "Operational",
-  "Transport": "Operational",
-  "Bijli / Utilities": "Operational",
-  "Utilities": "Operational",
-  "Tube Well / Water": "Operational",
-  "Breeding / AI": "Operational",
-  "Batch Cost": "Operational",
-  "Insurance": "Operational",
-  "Shed / Maintenance": "Capital & Construction",
-  "Farm Camera SIM data": "Operational",
-  "Other Expense": "Other",
+  // Fixed monthly commitments — rent, salaries, connectivity.
+  "Farm Rent": "Monthly Operational Cost",
+  "Worker Salary": "Monthly Operational Cost",
+  "Caretaker Salary": "Monthly Operational Cost",
+  "Farm Camera SIM data": "Monthly Operational Cost",
+  "Operational Cost": "Monthly Operational Cost",
+  "Bijli / Utilities": "Monthly Operational Cost",
+  "Utilities": "Monthly Operational Cost",
+  "Insurance": "Monthly Operational Cost",
+
+  // Day-to-day running costs that vary with the herd.
+  "Feed": "Running Expense",
+  "Feeding Cost": "Running Expense",
+  "Direct Purchase - Feed": "Running Expense",
+  "Chaara (Green Fodder)": "Running Expense",
+  "Wanda / Khal": "Running Expense",
+  "Vet Cost": "Running Expense",
+  "Veterinary": "Running Expense",
+  "Medicine": "Running Expense",
+  "Breeding / AI": "Running Expense",
+  "Transport": "Running Expense",
+  "Tube Well / Water": "Running Expense",
+  "Dewar / Labour": "Running Expense",
+
+  // One-off capital spend: kit, building work and the labour to install it.
+  "Equipment": "Fix Cost",
+  "Construction": "Fix Cost",
+  "Labour Cost": "Fix Cost",
+  "Labour / Wages": "Fix Cost",
+  "Shed / Maintenance": "Fix Cost",
+
+  "Animal Purchase": "Misc",
+  "Batch Cost": "Misc",
+  "Loan - Javed": "Misc",
+  "mics": "Misc",
+  "Other Expense": "Misc",
+
+  // Money out now that is expected back.
+  "Tenent Advance": "To be Received",
 };
 
-/** Resolves a category's group: an explicit assignment, else the built-in default, else "Other". */
+/** How each main category reads in the UI. */
+export const EXPENSE_GROUP_LABELS: Record<string, string> = {
+  "Monthly Operational Cost": "Monthly operational cost",
+  "Running Expense": "Running expense",
+  "Fix Cost": "Fix cost",
+  Misc: "Misc",
+  "To be Received": "To be received",
+};
+
+/** Resolves a category's main category: an explicit assignment, else the built-in default, else "Misc". */
 export function categoryGroupOf(name: string, assigned: Map<string, string>): string {
-  return assigned.get(name) ?? DEFAULT_CATEGORY_GROUP[name] ?? "Other";
+  return assigned.get(name) ?? DEFAULT_CATEGORY_GROUP[name] ?? "Misc";
+}
+
+/**
+ * A sub-category or main-category drill-down: every entry under it, across
+ * the whole history rather than the dashboard's date window, so "what has
+ * Worker Salary cost us?" is answered without first widening the filter.
+ */
+export function categoryDrillHref(kind: "sub" | "main", name: string, paidBy?: string): string {
+  const q = new URLSearchParams();
+  q.set(kind, name);
+  if (paidBy) q.set("paidBy", paidBy);
+  return `/finance?${q.toString()}`;
 }
 
 export const FEED_SUGGESTIONS: { name: string; category: string; unit: string }[] = [
