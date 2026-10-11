@@ -102,7 +102,7 @@ export default async function SettingsPage() {
             </div>
 
             {categories.length === 0 ? (
-              <Empty icon="🏷️" title="No custom categories yet" hint="The usual ones (Feed, Veterinary, Milk Sales…) already show up as suggestions — add your own here too." />
+              <Empty icon="🏷️" title="No custom categories yet" hint="The usual ones (Feed, Veterinary, Doodh…) already show up as suggestions — add your own here too." />
             ) : (
               <ul className="divide-y divide-line">
                 {categories.map((c) => (

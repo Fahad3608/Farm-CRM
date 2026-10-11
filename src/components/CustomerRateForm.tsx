@@ -20,7 +20,7 @@ export type RateInput = {
 /** One line of a buyer's rate card: what they take, in what unit, at what price. */
 export default function CustomerRateForm({ customerId, rate }: { customerId: string; rate?: RateInput }) {
   const [unit, setUnit] = useState(rate?.unit ?? "litre");
-  const [category, setCategory] = useState(rate?.category ?? "Milk Sales");
+  const [category, setCategory] = useState(rate?.category ?? "Doodh (Milk Sales)");
 
   // Typing a product we know the shape of fills in its usual unit and the
   // ledger category its income belongs under — both still editable.

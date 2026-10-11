@@ -40,7 +40,7 @@ export default function SaleForm({
   const [qty, setQty] = useState(rate?.dailyQty != null ? String(rate.dailyQty) : "");
   const [price, setPrice] = useState(rate ? String(rate.unitPrice) : "");
   const [unit, setUnit] = useState(rate?.unit ?? "litre");
-  const [category, setCategory] = useState(rate?.category ?? "Milk Sales");
+  const [category, setCategory] = useState(rate?.category ?? "Doodh (Milk Sales)");
   const [from, setFrom] = useState(monthStart);
   const [to, setTo] = useState(today);
 

@@ -196,8 +196,8 @@ export const VACCINE_SUGGESTIONS: Partial<Record<Species, string[]>> = {
  * rate card — any other product, unit or category can still be typed in.
  */
 export const SALE_PRODUCTS: { product: string; unit: string; category: string }[] = [
-  { product: "Milk", unit: "litre", category: "Milk Sales" },
-  { product: "Buffalo milk", unit: "litre", category: "Milk Sales" },
+  { product: "Milk", unit: "litre", category: "Doodh (Milk Sales)" },
+  { product: "Buffalo milk", unit: "litre", category: "Doodh (Milk Sales)" },
   { product: "Ghee", unit: "kg", category: "Other Income" },
   { product: "Manure", unit: "trolley", category: "Manure Sales" },
   { product: "Animal", unit: "head", category: "Animal Sale" },
