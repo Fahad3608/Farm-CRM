@@ -5,7 +5,6 @@ export const DEFAULTS = {
   currency: "PKR",
   weightUnit: "kg",
   milkUnit: "litres",
-  milkRate: "180",
 };
 
 export type FarmSettings = typeof DEFAULTS;

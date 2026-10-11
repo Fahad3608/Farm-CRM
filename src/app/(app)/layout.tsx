@@ -23,7 +23,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/animals", label: "Animals", icon: Icon.animals },
     { href: "/health", label: "Health", icon: Icon.syringe },
     can.viewBreeding(user.role) && { href: "/breeding", label: "Breeding", icon: Icon.breeding },
-    !isVet && { href: "/milk", label: "Milk", icon: Icon.milk },
     !isVet && { href: "/feed", label: "Feed", icon: Icon.feed },
   ].filter(Boolean) as NavItem[];
 

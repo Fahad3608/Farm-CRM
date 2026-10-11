@@ -48,7 +48,6 @@ export async function addMilkAction(_prev: State, fd: FormData): Promise<State> 
   }
   revalidatePath(`/animals/${animalId}`);
   revalidatePath("/dashboard");
-  revalidatePath("/milk");
   return { ok: "Milk recorded." };
 }
 
@@ -60,7 +59,6 @@ export async function deleteLogAction(fd: FormData) {
   if (kind === "weight") await prisma.weightRecord.delete({ where: { id } });
   if (kind === "milk") {
     await prisma.milkRecord.delete({ where: { id } });
-    revalidatePath("/milk");
   }
   revalidatePath(`/animals/${animalId}`);
 }

@@ -7,7 +7,7 @@ import { getSettings } from "@/lib/settings";
 import { Avatar, Badge, Empty, PageHeader, Section, StatTile } from "@/components/ui";
 import { BarList, IncomeExpenseChart } from "@/components/charts";
 import { SPECIES, HEALTH_TYPE } from "@/lib/domain";
-import { ageFrom, fmtDate, money, num, relativeDue } from "@/lib/format";
+import { ageFrom, fmtDate, money, relativeDue } from "@/lib/format";
 import { Icon } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +24,7 @@ export default async function Dashboard() {
   const in30 = new Date(now.getTime() + 30 * 86400000);
   const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
 
-  const [bySpecies, active, pregnant, dueFollowUps, dueBirths, recentHealth, monthTxns, txnRange, milkMonth] =
+  const [bySpecies, active, pregnant, dueFollowUps, dueBirths, recentHealth, monthTxns, txnRange] =
     await Promise.all([
       prisma.animal.groupBy({ by: ["species"], where: { status: "ACTIVE" }, _count: true }),
       prisma.animal.findMany({
@@ -54,7 +54,6 @@ export default async function Dashboard() {
       showMoney
         ? prisma.transaction.findMany({ where: { date: { gte: sixMonthsAgo } }, select: { date: true, type: true, amount: true, category: true } })
         : Promise.resolve([]),
-      prisma.milkRecord.aggregate({ where: { date: { gte: monthStart } }, _sum: { litres: true } }),
     ]);
 
   const totalActive = active.length;
@@ -96,7 +95,7 @@ export default async function Dashboard() {
         <StatTile label="Animals on farm" tone="brand" value={totalActive} hint={`${young} young · ${totalActive - young} adult`} href="/animals" />
         <StatTile label="Expecting" value={pregnant.length} hint={dueBirths ? `${dueBirths} due within 30 days` : "No births due soon"} href="/breeding" tone={pregnant.length ? "accent" : "muted"} />
         <StatTile label="Health follow-ups" value={dueFollowUps.length} hint="Due in the next 30 days" href="/health" tone={dueFollowUps.length ? "warn" : "muted"} />
-        {showMoney ? (
+        {showMoney && (
           <StatTile
             label="This month's net"
             value={money(income - expense, settings.currency)}
@@ -104,8 +103,6 @@ export default async function Dashboard() {
             tone={income - expense >= 0 ? "good" : "bad"}
             href="/finance"
           />
-        ) : (
-          <StatTile label="Milk this month" value={`${num(milkMonth._sum.litres, 1)} L`} hint="All animals" href="/milk" />
         )}
       </div>
 
@@ -178,21 +175,6 @@ export default async function Dashboard() {
 
         {showMoney && (
           <>
-            <Section title="Milk this month" subtitle={`${num(milkMonth._sum.litres, 1)} litres`} action={<Link href="/milk" className="text-[13px] text-brand hover:underline">All milk</Link>}>
-              <div className="px-4 py-3">
-                <div className="flex items-baseline gap-3">
-                  <span className="text-[22px] font-semibold">{num(milkMonth._sum.litres, 1)} L</span>
-                  {Number(settings.milkRate) > 0 && (
-                    <span className="text-[14px] text-good font-medium">
-                      {money(Number(milkMonth._sum.litres ?? 0) * Number(settings.milkRate), settings.currency)} est. revenue
-                    </span>
-                  )}
-                </div>
-                {Number(settings.milkRate) > 0 && (
-                  <p className="mt-1 text-[12.5px] text-muted">@ {money(Number(settings.milkRate), settings.currency)} / litre — change the rate in Settings</p>
-                )}
-              </div>
-            </Section>
             <Section title="This month's spending" subtitle="By category">
               <BarList
                 items={[...expenseByCategory.entries()]
