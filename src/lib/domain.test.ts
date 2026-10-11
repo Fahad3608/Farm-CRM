@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { CATEGORY_GROUPS, categoryDrillHref, categoryGroupOf } from "./domain";
+import { CATEGORY_GROUPS, DEFAULT_CATEGORY_GROUP, EXPENSE_GROUP_LABELS, categoryGroupOf } from "./domain";
 
 test("built-in categories roll up into the spreadsheet's main categories", () => {
   const none = new Map<string, string>();
@@ -26,12 +26,11 @@ test("every default group is one of the known main categories", () => {
   }
 });
 
-test("drill-down links carry the category and keep the payer filter", () => {
-  const sub = new URL(categoryDrillHref("sub", "Worker Salary"), "https://farm.test");
-  assert.equal(sub.searchParams.get("sub"), "Worker Salary");
-  assert.equal(sub.searchParams.has("paidBy"), false);
-
-  const main = new URL(categoryDrillHref("main", "Fix Cost", "Fahad"), "https://farm.test");
-  assert.equal(main.searchParams.get("main"), "Fix Cost");
-  assert.equal(main.searchParams.get("paidBy"), "Fahad");
+test("every main category a sub-category maps to is labelled for the UI", () => {
+  for (const group of new Set(Object.values(DEFAULT_CATEGORY_GROUP))) {
+    assert.ok(CATEGORY_GROUPS.includes(group), `${group} is not a known main category`);
+    assert.ok(EXPENSE_GROUP_LABELS[group], `${group} has no label`);
+  }
+  // The fallback for an ungrouped category needs a label too.
+  assert.ok(EXPENSE_GROUP_LABELS[categoryGroupOf("brand new category", new Map())]);
 });

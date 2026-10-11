@@ -131,7 +131,7 @@ export default async function FeedPage() {
           <Section
             title="Feeding costs"
             subtitle={`Every feed expense in the ledger · put each one against an animal or mark it farm-wide`}
-            action={<Link href="/finance?sub=Feeding+Cost" className="btn-ghost btn-sm">In Finance</Link>}
+            action={<Link href="/finance/categories?sub=Feeding+Cost" className="btn-ghost btn-sm">In Finance</Link>}
           >
             {feedCosts.length === 0 ? (
               <Empty

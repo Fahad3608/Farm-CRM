@@ -28,6 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const spendingNav = can.viewFinance(user.role)
     ? [
+        { href: "/finance/categories", label: "Spend by category", icon: Icon.finance },
         { href: "/equipment", label: "Equipment & construction", icon: Icon.batch },
         { href: "/batches", label: "Batches", icon: Icon.batch },
       ]

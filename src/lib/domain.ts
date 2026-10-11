@@ -192,18 +192,6 @@ export function categoryGroupOf(name: string, assigned: Map<string, string>): st
   return assigned.get(name) ?? DEFAULT_CATEGORY_GROUP[name] ?? "Misc";
 }
 
-/**
- * A sub-category or main-category drill-down: every entry under it, across
- * the whole history rather than the dashboard's date window, so "what has
- * Worker Salary cost us?" is answered without first widening the filter.
- */
-export function categoryDrillHref(kind: "sub" | "main", name: string, paidBy?: string): string {
-  const q = new URLSearchParams();
-  q.set(kind, name);
-  if (paidBy) q.set("paidBy", paidBy);
-  return `/finance?${q.toString()}`;
-}
-
 export const FEED_SUGGESTIONS: { name: string; category: string; unit: string }[] = [
   { name: "Bhoosa (Wheat Straw)", category: "Roughage", unit: "kg" },
   { name: "Toori (Mustard Straw)", category: "Roughage", unit: "kg" },
