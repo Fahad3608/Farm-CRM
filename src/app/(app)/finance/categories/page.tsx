@@ -5,7 +5,6 @@ import { requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { getSettings } from "@/lib/settings";
 import { Empty, Field, PageHeader, Section, StatTile } from "@/components/ui";
-import { BarList } from "@/components/charts";
 import AutoSubmitSelect from "@/components/AutoSubmitSelect";
 import { EXPENSE_CATEGORIES, EXPENSE_GROUP_LABELS, NO_PAYER, CATEGORY_GROUPS, categoryGroupOf } from "@/lib/domain";
 import { fmtDate, money } from "@/lib/format";
@@ -219,10 +218,12 @@ export default async function SpendByCategoryPage({ searchParams }: { searchPara
         </Section>
       )}
 
-      {!subKey && (
+      {/* Sub-categories belong inside a main category, not alongside it — the
+          overview stays a short list of the groups. */}
+      {mainKey && !subKey && (
         <Section
           title="Sub-categories"
-          subtitle={mainKey ? `Inside ${mainLabel(mainKey)} — biggest first` : "Biggest first — tap one for its monthly history"}
+          subtitle={`Inside ${mainLabel(mainKey)} — biggest first`}
           className="mb-4"
         >
           {subRows.length === 0 ? (
@@ -234,8 +235,10 @@ export default async function SpendByCategoryPage({ searchParams }: { searchPara
                   <Link href={href({ sub: name })} className="flex items-center justify-between gap-3 px-4 py-3.5 hover:bg-surface2/60">
                     <span className="min-w-0">
                       <span className="truncate text-[15px] font-medium">{name}</span>
+                      {/* Every row here shares the main category in the heading,
+                          so repeating it on each line says nothing. */}
                       <span className="block text-[12.5px] text-muted">
-                        {mainLabel(s.main)} · {s.count} {s.count === 1 ? "entry" : "entries"}
+                        {s.count} {s.count === 1 ? "entry" : "entries"}
                       </span>
                     </span>
                     <span className="shrink-0 text-right">
@@ -323,20 +326,7 @@ export default async function SpendByCategoryPage({ searchParams }: { searchPara
       )}
 
       {!drilling && (
-        <div className="grid items-start gap-4 lg:grid-cols-2">
-          <Section title="Spend by sub-category" subtitle="Relative size at a glance">
-            <BarList
-              items={subRows.map(([name, s]) => ({
-                label: name,
-                value: s.total,
-                display: money(s.total, settings.currency),
-                href: href({ sub: name }),
-              }))}
-              accent="b"
-              emptyText="No expenses recorded yet."
-            />
-          </Section>
-
+        <div className="grid items-start gap-4">
           <Section
             title="Who funded the farm"
             subtitle={`Every expense ever recorded · ${money(investedTotal, settings.currency)} in total`}
