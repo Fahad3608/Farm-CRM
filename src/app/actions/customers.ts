@@ -5,18 +5,13 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
-import { bool, dec, reqDate, reqStr, str } from "@/lib/form";
+import { bool, dec, reqStr, str } from "@/lib/form";
 import { saleProductPreset } from "@/lib/domain";
 
 type State = { error?: string; ok?: string } | undefined;
 
 /** Money is stored to the paisa, quantities to three decimals. */
 const round2 = (n: number) => Math.round(n * 100) / 100;
-
-/** A sale's ledger line: who bought what, how much of it, at what rate. */
-function saleDescription(customerName: string, product: string, quantity: number, unit: string, unitPrice: number) {
-  return `${product} — ${quantity} ${unit} × ${unitPrice} · ${customerName}`;
-}
 
 export async function saveCustomerAction(_prev: State, fd: FormData): Promise<State> {
   const user = await requireUser();
@@ -142,68 +137,12 @@ async function resolveSaleTerms(fd: FormData, customerId: string) {
   };
 }
 
-/** Logs one delivery and the income entry that goes with it. */
-export async function recordSaleAction(_prev: State, fd: FormData): Promise<State> {
-  const user = await requireUser();
-  if (!can.editFinance(user.role)) return { error: "Not permitted." };
-
-  const customerId = reqStr(fd, "customerId");
-  try {
-    const customer = await prisma.customer.findUniqueOrThrow({ where: { id: customerId }, select: { name: true } });
-    const terms = await resolveSaleTerms(fd, customerId);
-
-    const quantity = dec(fd, "quantity") ?? terms.defaultQty;
-    if (quantity === null || quantity <= 0) return { error: "Enter a quantity greater than zero." };
-
-    const date = reqDate(fd, "date", "Date");
-    const amount = round2(quantity * terms.unitPrice);
-    const notes = str(fd, "notes");
-
-    const sale = await prisma.sale.create({
-      data: {
-        customerId,
-        rateId: terms.rateId,
-        date,
-        product: terms.product,
-        unit: terms.unit,
-        quantity,
-        unitPrice: terms.unitPrice,
-        amount,
-        category: terms.category,
-        notes,
-        createdById: user.id,
-      },
-    });
-
-    await prisma.transaction.create({
-      data: {
-        date,
-        type: "INCOME",
-        category: terms.category,
-        amount,
-        description: saleDescription(customer.name, terms.product, quantity, terms.unit, terms.unitPrice),
-        vendor: customer.name,
-        notAnimalSpecific: true,
-        saleId: sale.id,
-        createdById: user.id,
-      },
-    });
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : "Could not save." };
-  }
-
-  revalidatePath(`/customers/${customerId}`);
-  revalidatePath("/customers");
-  revalidatePath("/finance");
-  revalidatePath("/dashboard");
-  return { ok: "Delivery recorded." };
-}
-
 /**
- * Logs one monthly sale for the entire date range — total quantity is
- * daily qty × days, recorded as a single Sale + Transaction entry.
+ * Bills a whole month in one entry: the total quantity taken that month at an
+ * agreed price. Re-billing a month replaces its previous entry, so correcting
+ * a figure after the buyer says they took more never double-counts.
  */
-export async function recordSaleRangeAction(_prev: State, fd: FormData): Promise<State> {
+export async function recordMonthlyBillAction(_prev: State, fd: FormData): Promise<State> {
   const user = await requireUser();
   if (!can.editFinance(user.role)) return { error: "Not permitted." };
 
@@ -212,45 +151,50 @@ export async function recordSaleRangeAction(_prev: State, fd: FormData): Promise
     const customer = await prisma.customer.findUniqueOrThrow({ where: { id: customerId }, select: { name: true } });
     const terms = await resolveSaleTerms(fd, customerId);
 
-    const dailyQty = dec(fd, "quantity") ?? terms.defaultQty;
-    if (dailyQty === null || dailyQty <= 0) return { error: "Enter a daily quantity greater than zero." };
+    const month = reqStr(fd, "month", "Month");
+    if (!/^\d{4}-\d{2}$/.test(month)) return { error: "Choose a month." };
+    const [year, monthNumber] = month.split("-").map(Number);
+    // Stored at midday on the 1st, matching how every other date is kept.
+    const date = new Date(year, monthNumber - 1, 1, 12, 0, 0, 0);
+    const monthEnd = new Date(year, monthNumber, 0, 23, 59, 59, 999);
 
-    const from = reqDate(fd, "from", "From");
-    const to = reqDate(fd, "to", "To");
-    if (to < from) return { error: "The end date is before the start date." };
+    const quantity = dec(fd, "quantity");
+    if (quantity === null || quantity <= 0) return { error: "Enter the total quantity for the month." };
 
-    const days = Math.round((to.getTime() - from.getTime()) / 86400000) + 1;
-    if (days > 366) return { error: "That's more than a year — record it a month or a season at a time." };
-
-    const totalQty = round2(dailyQty * days);
+    const totalQty = round2(quantity);
     const amount = round2(totalQty * terms.unitPrice);
-    const notes = str(fd, "notes");
-    const fmtFrom = from.toISOString().slice(0, 10);
-    const fmtTo = to.toISOString().slice(0, 10);
+    const label = date.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+
+    // One bill per product per month: clear this month's before writing the
+    // new one so an edited figure replaces rather than stacks. Linked income
+    // entries cascade away with their sale.
+    await prisma.sale.deleteMany({
+      where: { customerId, product: terms.product, date: { gte: new Date(year, monthNumber - 1, 1), lte: monthEnd } },
+    });
 
     const sale = await prisma.sale.create({
       data: {
         customerId,
         rateId: terms.rateId,
-        date: from,
+        date,
         product: terms.product,
         unit: terms.unit,
         quantity: totalQty,
         unitPrice: terms.unitPrice,
         amount,
         category: terms.category,
-        notes: [notes, `${dailyQty} ${terms.unit}/day × ${days} days (${fmtFrom} to ${fmtTo})`].filter(Boolean).join(" · "),
+        notes: str(fd, "notes"),
         createdById: user.id,
       },
     });
 
     await prisma.transaction.create({
       data: {
-        date: from,
+        date,
         type: "INCOME",
         category: terms.category,
         amount,
-        description: `${terms.product} — ${totalQty} ${terms.unit} (${dailyQty}/day × ${days} days) × ${terms.unitPrice} · ${customer.name}`,
+        description: `${terms.product} — ${label}: ${totalQty} ${terms.unit} × ${terms.unitPrice} · ${customer.name}`,
         vendor: customer.name,
         notAnimalSpecific: true,
         saleId: sale.id,
@@ -262,23 +206,32 @@ export async function recordSaleRangeAction(_prev: State, fd: FormData): Promise
     revalidatePath("/customers");
     revalidatePath("/finance");
     revalidatePath("/dashboard");
-    return {
-      ok: `Recorded ${totalQty} ${terms.unit} over ${days} days — ${round2(amount).toLocaleString()} total.`,
-    };
+    return { ok: `${label} billed: ${totalQty} ${terms.unit} — ${amount.toLocaleString()}.` };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Could not save." };
   }
 }
 
-export async function deleteSaleAction(fd: FormData) {
+/** Removes a whole month's bill for one product. */
+export async function deleteMonthlyBillAction(fd: FormData) {
   const user = await requireUser();
   if (!can.editFinance(user.role)) throw new Error("Not permitted.");
-  const id = reqStr(fd, "id");
-  const sale = await prisma.sale.findUnique({ where: { id }, select: { customerId: true } });
-  // The linked income entry is removed with it (cascade), so the ledger stays in step.
-  await prisma.sale.delete({ where: { id } });
-  if (sale) revalidatePath(`/customers/${sale.customerId}`);
+  const customerId = reqStr(fd, "customerId");
+  const product = reqStr(fd, "product");
+  const month = reqStr(fd, "month");
+  if (!/^\d{4}-\d{2}$/.test(month)) throw new Error("Choose a month.");
+  const [year, monthNumber] = month.split("-").map(Number);
+
+  await prisma.sale.deleteMany({
+    where: {
+      customerId, product,
+      date: { gte: new Date(year, monthNumber - 1, 1), lte: new Date(year, monthNumber, 0, 23, 59, 59, 999) },
+    },
+  });
+
+  revalidatePath(`/customers/${customerId}`);
   revalidatePath("/customers");
   revalidatePath("/finance");
   revalidatePath("/dashboard");
 }
+

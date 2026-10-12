@@ -11,15 +11,13 @@ import RecordActions from "@/components/RecordActions";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import CustomerForm from "@/components/CustomerForm";
 import CustomerRateForm from "@/components/CustomerRateForm";
-import SaleForm from "@/components/SaleForm";
-import { BarList } from "@/components/charts";
-import { fmtDate, money, num } from "@/lib/format";
-import { deleteCustomerAction, deleteRateAction, deleteSaleAction } from "@/app/actions/customers";
+import MonthlyBillForm from "@/components/MonthlyBillForm";
+import { money, num } from "@/lib/format";
+import { deleteCustomerAction, deleteRateAction, deleteMonthlyBillAction } from "@/app/actions/customers";
 
 export const dynamic = "force-dynamic";
 
 const DAYS_PER_MONTH = 30.44;
-const RECENT_DELIVERIES = 60;
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -34,10 +32,12 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
   });
   if (!customer) notFound();
 
-  const [sales, recent, byProduct] = await Promise.all([
-    // Every sale, but only the two columns the monthly rollup needs.
-    prisma.sale.findMany({ where: { customerId: id }, select: { date: true, amount: true }, orderBy: { date: "asc" } }),
-    prisma.sale.findMany({ where: { customerId: id }, orderBy: [{ date: "desc" }, { createdAt: "desc" }], take: RECENT_DELIVERIES }),
+  const [sales, byProduct] = await Promise.all([
+    prisma.sale.findMany({
+      where: { customerId: id },
+      select: { date: true, amount: true, quantity: true, unit: true, product: true, unitPrice: true },
+      orderBy: { date: "asc" },
+    }),
     prisma.sale.groupBy({ by: ["product", "unit"], where: { customerId: id }, _sum: { quantity: true, amount: true } }),
   ]);
 
@@ -51,21 +51,27 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
   const activeRates = customer.rates.filter((r) => r.active);
   const perDay = activeRates.reduce((s, r) => s + (r.dailyQty ? Number(r.dailyQty) * Number(r.unitPrice) : 0), 0);
 
-  // Only months that actually have deliveries — an empty month is noise.
-  const monthly = new Map<string, { label: string; total: number }>();
+  // One line per month per product. Older per-day entries roll up into their
+  // month too, so history reads the same way as anything billed monthly.
+  const bills = new Map<string, {
+    month: string; label: string; product: string; unit: string;
+    quantity: number; amount: number;
+  }>();
   for (const s of sales) {
-    const key = `${s.date.getFullYear()}-${String(s.date.getMonth()).padStart(2, "0")}`;
-    const entry = monthly.get(key) ?? {
-      label: s.date.toLocaleDateString(undefined, { month: "short", year: "2-digit" }),
-      total: 0,
+    const month = `${s.date.getFullYear()}-${String(s.date.getMonth() + 1).padStart(2, "0")}`;
+    const key = `${month}::${s.product}`;
+    const entry = bills.get(key) ?? {
+      month,
+      label: s.date.toLocaleDateString(undefined, { month: "long", year: "numeric" }),
+      product: s.product, unit: s.unit, quantity: 0, amount: 0,
     };
-    entry.total += Number(s.amount);
-    monthly.set(key, entry);
+    entry.quantity += Number(s.quantity);
+    entry.amount += Number(s.amount);
+    bills.set(key, entry);
   }
-  const monthlyRows = [...monthly.entries()]
-    .sort((a, b) => b[0].localeCompare(a[0]))
-    .slice(0, 12)
-    .map(([, v]) => ({ label: v.label, value: v.total, display: money(v.total, settings.currency) }));
+  const billRows = [...bills.values()].sort(
+    (a, b) => b.month.localeCompare(a.month) || a.product.localeCompare(b.product),
+  );
 
   const saleRates = activeRates.map((r) => ({
     id: r.id,
@@ -115,11 +121,10 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         </div>
       </header>
 
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile label="Expected per day" value={perDay > 0 ? money(perDay, settings.currency) : "—"} hint="Usual quantity × price" />
-        <StatTile label="Expected per month" value={perDay > 0 ? money(Math.round(perDay * DAYS_PER_MONTH), settings.currency) : "—"} hint={`≈ ${DAYS_PER_MONTH} days`} />
-        <StatTile label="This month" value={money(thisMonth, settings.currency)} tone="good" hint="Deliveries actually logged" />
-        <StatTile label="All time" value={money(allTime, settings.currency)} hint={`${sales.length} deliver${sales.length === 1 ? "y" : "ies"}`} />
+      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <StatTile label="Expected per month" value={perDay > 0 ? money(Math.round(perDay * DAYS_PER_MONTH), settings.currency) : "—"} hint="Usual quantity at the current price" />
+        <StatTile label="This month" value={money(thisMonth, settings.currency)} tone="good" hint="Billed so far" />
+        <StatTile label="All time" value={money(allTime, settings.currency)} hint={`${billRows.length} month${billRows.length === 1 ? "" : "s"} billed`} />
       </div>
 
       <div className="grid items-start gap-4 lg:grid-cols-2">
@@ -194,16 +199,18 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         </Section>
 
         {canEdit && (
-          <Section title="Record a delivery" subtitle="One-off, or a monthly total across a date range">
+          <Section title="Bill a month" subtitle="Total taken that month — the bill works itself out">
             <div className="p-4">
-              <SaleForm customerId={customer.id} rates={saleRates} currency={settings.currency} />
+              {saleRates.length === 0 ? (
+                <Empty icon="🥛" title="Set a price first" hint="Add what they buy and the price per unit, then months can be billed." />
+              ) : (
+                <MonthlyBillForm customerId={customer.id} rates={saleRates} currency={settings.currency} />
+              )}
             </div>
           </Section>
         )}
 
-        <Section title="Income by month" subtitle="Months with deliveries, most recent first">
-          <BarList items={monthlyRows} accent="a" emptyText="No deliveries recorded yet." />
-        </Section>
+
 
         <Section title="By product" subtitle="Everything this buyer has taken">
           {byProduct.length === 0 ? (
@@ -233,49 +240,57 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         </Section>
 
         <Section
-          title="Deliveries"
-          subtitle={sales.length > RECENT_DELIVERIES ? `Most recent ${RECENT_DELIVERIES} of ${sales.length}` : `${sales.length} recorded`}
+          title="Monthly bills"
+          subtitle={billRows.length ? `${billRows.length} month${billRows.length === 1 ? "" : "s"} billed · most recent first` : "Nothing billed yet"}
           className="lg:col-span-2"
         >
-          {recent.length === 0 ? (
-            <Empty icon="🧾" title="No deliveries yet" hint="Each one you record also shows up as income in Finance." />
+          {billRows.length === 0 ? (
+            <Empty icon="🧾" title="No months billed yet" hint="Bill a month above and it shows up here, and as income in Finance." />
           ) : (
             <div className="scroll-x">
               <table className="w-full min-w-[620px]">
                 <thead>
                   <tr>
-                    <th className="th">Date</th>
+                    <th className="th">Month</th>
                     <th className="th">Product</th>
                     <th className="th text-right">Quantity</th>
                     <th className="th text-right">Rate</th>
-                    <th className="th text-right">Amount</th>
-                    <th className="th">Notes</th>
+                    <th className="th text-right">Bill</th>
                     {canEdit && <th className="th w-10"></th>}
                   </tr>
                 </thead>
                 <tbody>
-                  {recent.map((s) => (
-                    <tr key={s.id} className="row">
-                      <td className="td whitespace-nowrap">{fmtDate(s.date)}</td>
-                      <td className="td">{s.product}</td>
-                      <td className="td text-right tabular-nums">{num(s.quantity, 3)} {s.unit}</td>
-                      <td className="td text-right tabular-nums text-muted">{money(s.unitPrice, settings.currency)}/{s.unit}</td>
-                      <td className="td text-right tabular-nums font-semibold">{money(s.amount, settings.currency)}</td>
-                      <td className="td text-muted">{s.notes ?? "—"}</td>
+                  {billRows.map((b) => (
+                    <tr key={`${b.month}-${b.product}`} className="row">
+                      <td className="td whitespace-nowrap font-medium">{b.label}</td>
+                      <td className="td">{b.product}</td>
+                      <td className="td text-right tabular-nums">{num(b.quantity, 3)} {b.unit}</td>
+                      <td className="td text-right tabular-nums text-muted">
+                        {b.quantity > 0 ? `${money(b.amount / b.quantity, settings.currency)}/${b.unit}` : "—"}
+                      </td>
+                      <td className="td text-right tabular-nums font-semibold">{money(b.amount, settings.currency)}</td>
                       {canEdit && (
                         <td className="td text-right">
-                          <RecordActions label="Delivery actions"><form action={deleteSaleAction}>
-                            <input type="hidden" name="id" value={s.id} />
+                          <RecordActions label="Bill actions"><form action={deleteMonthlyBillAction}>
+                            <input type="hidden" name="customerId" value={customer.id} />
+                            <input type="hidden" name="product" value={b.product} />
+                            <input type="hidden" name="month" value={b.month} />
                             <ConfirmSubmit className="record-delete-action"
-                              message={`Delete the ${fmtDate(s.date)} delivery (${money(s.amount, settings.currency)})? Its income entry goes too.`}
-
-                            >Delete delivery</ConfirmSubmit>
+                              message={`Delete the ${b.label} ${b.product} bill (${money(b.amount, settings.currency)})? Its income entry goes too.`}
+                            >Delete month&rsquo;s bill</ConfirmSubmit>
                           </form></RecordActions>
                         </td>
                       )}
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-line">
+                    <td className="td font-semibold" colSpan={4}>Total billed</td>
+                    <td className="td text-right tabular-nums font-semibold">{money(allTime, settings.currency)}</td>
+                    {canEdit && <td className="td"></td>}
+                  </tr>
+                </tfoot>
               </table>
             </div>
           )}
