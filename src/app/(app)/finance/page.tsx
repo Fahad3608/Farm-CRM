@@ -38,11 +38,12 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
   const settings = await getSettings();
   const now = new Date();
 
-  // Dates are stored at midday to stay timezone-stable, so the range ends at
-  // the end of the day — otherwise today's entries fall outside "up to today".
-  const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
-  const from = sp.from ? new Date(`${sp.from}T00:00:00`) : new Date(now.getFullYear(), now.getMonth() - 5, 1);
-  const to = sp.to ? new Date(`${sp.to}T23:59:59`) : endOfDay(now);
+  // Unfiltered means every entry, with no window capped at today: a cost
+  // dated ahead (a rent payment booked early, a bill with next week's date)
+  // must still show up, or it looks like it was never recorded.
+  const from = sp.from ? new Date(`${sp.from}T00:00:00`) : null;
+  const to = sp.to ? new Date(`${sp.to}T23:59:59`) : null;
+  const filtered = Boolean(from || to);
 
   const payerFilter = sp.paidBy ?? "";
   const paidByWhere =
@@ -76,8 +77,8 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
     const [y, m] = monthKey.split("-").map(Number);
     const monthStart = new Date(y, m - 1, 1, 0, 0, 0, 0);
     const monthEnd = new Date(y, m, 0, 23, 59, 59, 999);
-    scopeFrom = monthStart > from ? monthStart : from;
-    scopeTo = monthEnd < to ? monthEnd : to;
+    scopeFrom = from && from > monthStart ? from : monthStart;
+    scopeTo = to && to < monthEnd ? to : monthEnd;
   }
 
   // A main category is "every sub-category in this group", since the grouping
@@ -91,7 +92,9 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
 
   const where = {
     type: "EXPENSE" as const,
-    date: { gte: scopeFrom, lte: scopeTo },
+    ...(scopeFrom || scopeTo
+      ? { date: { ...(scopeFrom ? { gte: scopeFrom } : {}), ...(scopeTo ? { lte: scopeTo } : {}) } }
+      : {}),
     ...paidByWhere,
     ...categoryWhere,
   };
@@ -200,7 +203,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
 
   const subtitle =
     level === "months"
-      ? `${fmtDate(from)} — ${fmtDate(to)} · pick a month to drill in`
+      ? `${filtered ? `${from ? fmtDate(from) : "Start"} — ${to ? fmtDate(to) : "Today"}` : "Every expense recorded"} · pick a month to drill in`
       : level === "mains"
       ? "Main categories this month — pick one to see its sub-categories"
       : level === "subs"
@@ -237,8 +240,8 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
 
       {level === "months" && (
         <form className="mb-4 flex flex-wrap items-end gap-2" action="/finance">
-          <Field label="From"><input type="date" name="from" defaultValue={dateVal(from)} className="input w-auto" /></Field>
-          <Field label="To"><input type="date" name="to" defaultValue={dateVal(to)} className="input w-auto" /></Field>
+          <Field label="From" hint="Leave blank for all"><input type="date" name="from" defaultValue={from ? dateVal(from) : ""} className="input w-auto" /></Field>
+          <Field label="To" hint="Leave blank for all"><input type="date" name="to" defaultValue={to ? dateVal(to) : ""} className="input w-auto" /></Field>
           <Field label="Paid by">
             <select name="paidBy" defaultValue={payerFilter} className="input w-auto">
               <option value="">Anyone</option>
@@ -253,7 +256,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
 
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile
-          label={level === "months" ? "Total in this period" : "Total here"}
+          label={level !== "months" ? "Total here" : filtered ? "Total in this range" : "Total"}
           value={money(total, settings.currency)}
           tone="bad"
           hint={`${count} ${count === 1 ? "entry" : "entries"}`}
@@ -275,13 +278,13 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
         {level === "months" ? (
           <StatTile
             label="Average per month"
-            value={money(total / (monthRows.length || 1), settings.currency)}
+            value={money(Math.round(total / (monthRows.length || 1)), settings.currency)}
             hint="Across the months shown"
           />
         ) : (
           <StatTile
             label="Average per entry"
-            value={money(total / (count || 1), settings.currency)}
+            value={money(Math.round(total / (count || 1)), settings.currency)}
             hint={`Over ${count} ${count === 1 ? "entry" : "entries"}`}
           />
         )}
@@ -302,7 +305,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
                     </span>
                     <span className="shrink-0 text-right">
                       <span className="block tabular-nums font-semibold">{money(m.total, settings.currency)}</span>
-                      <span className="block text-[12px] text-muted">{pct(m.total)} of period →</span>
+                      <span className="block text-[12px] text-muted">{pct(m.total)} of total →</span>
                     </span>
                   </Link>
                 </li>

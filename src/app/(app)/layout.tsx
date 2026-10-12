@@ -23,26 +23,33 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/animals", label: "Animals", icon: Icon.animals },
     { href: "/health", label: "Health", icon: Icon.syringe },
     can.viewBreeding(user.role) && { href: "/breeding", label: "Breeding", icon: Icon.breeding },
-    !isVet && { href: "/feed", label: "Feed", icon: Icon.feed },
   ].filter(Boolean) as NavItem[];
 
-  const spendingNav = can.viewFinance(user.role)
+  // What the animals eat and the groups they were bought in.
+  const feedNav = [
+    !isVet && { href: "/feed", label: "Feed", icon: Icon.feed },
+    can.viewFinance(user.role) && { href: "/batches", label: "Batches", icon: Icon.batch },
+  ].filter(Boolean) as NavItem[];
+
+  const moneyNav = can.viewFinance(user.role)
     ? [
-        { href: "/finance/categories", label: "Spend by category", icon: Icon.finance },
+        { href: "/finance", label: "Finance", icon: Icon.finance },
         { href: "/equipment", label: "Equipment & construction", icon: Icon.batch },
-        { href: "/batches", label: "Batches", icon: Icon.batch },
+        { href: "/customers", label: "Customers", icon: Icon.customers },
       ]
     : [];
 
+  const navGroups = [
+    { label: null, items: mainNav },
+    { label: "Feed & batches", items: feedNav },
+    { label: "Money", items: moneyNav },
+  ].filter((g) => g.items.length > 0);
+
   const bottomNav = [
-    can.viewFinance(user.role) && { href: "/finance", label: "Finance", icon: Icon.finance },
-    can.viewFinance(user.role) && { href: "/customers", label: "Customers", icon: Icon.customers },
     can.manageSettings(user.role) && { href: "/settings", label: "Settings", icon: Icon.settings },
   ].filter(Boolean) as NavItem[];
 
-  const allNav = [...mainNav, ...spendingNav, ...bottomNav];
-
-  const mobileNav = mainNav.slice(0, 5);
+  const mobileNav = [...mainNav, ...feedNav, ...moneyNav].slice(0, 5);
 
   return (
     <div className="min-h-dvh md:flex">
@@ -58,24 +65,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
 
         <nav className="flex flex-1 flex-col overflow-y-auto px-2 py-2">
-          <div className="flex flex-col gap-0.5">
-            {mainNav.map((item) => (
-              <NavLink key={item.href} href={item.href} label={item.label}>
-                <item.icon />
-              </NavLink>
-            ))}
-          </div>
-
-          {spendingNav.length > 0 && (
-            <div className="mt-4 flex flex-col gap-0.5">
-              <span className="px-2.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted">Spending</span>
-              {spendingNav.map((item) => (
+          {navGroups.map((group, i) => (
+            <div key={group.label ?? "main"} className={`flex flex-col gap-0.5${i > 0 ? " mt-4" : ""}`}>
+              {group.label && (
+                <span className="px-2.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
+                  {group.label}
+                </span>
+              )}
+              {group.items.map((item) => (
                 <NavLink key={item.href} href={item.href} label={item.label}>
                   <item.icon />
                 </NavLink>
               ))}
             </div>
-          )}
+          ))}
         </nav>
 
         <div className="border-t border-line p-2">

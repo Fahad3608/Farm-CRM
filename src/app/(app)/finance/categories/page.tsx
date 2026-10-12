@@ -174,7 +174,7 @@ export default async function SpendByCategoryPage({ searchParams }: { searchPara
         />
         <StatTile
           label="Average per month"
-          value={money(total / (monthRows.length || 1), settings.currency)}
+          value={money(Math.round(total / (monthRows.length || 1)), settings.currency)}
           hint={`Across ${monthRows.length} ${monthRows.length === 1 ? "month" : "months"}`}
         />
         <StatTile
