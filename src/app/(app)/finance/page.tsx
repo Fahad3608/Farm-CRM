@@ -167,8 +167,15 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
     .filter((g) => g.subs.length > 0);
 
   const pct = (part: number) => (total > 0 ? `${Math.round((part / total) * 100)}%` : "—");
-  const biggestSub = [...bySub].reduce<[string, { total: number }] | null>(
-    (best, row) => (!best || row[1].total > best[1].total ? row : best), null,
+
+  // At the ledger everything shares one category, so the useful outlier there
+  // is the single biggest entry rather than the biggest category.
+  const largestEntry = rollup.reduce<{ label: string; amount: number } | null>(
+    (best, t) => {
+      const amount = Number(t.amount);
+      return !best || amount > best.amount ? { label: t.description ?? t.category, amount } : best;
+    },
+    null,
   );
 
   const ledgerRows: LedgerRow[] = entries.map((t) => ({
@@ -255,36 +262,41 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
         {(monthKey || payerFilter) && <Link href="/finance" className="btn-ghost btn-sm">Reset</Link>}
       </form>
 
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile
-          label={level === "months" ? "Total" : level === "subs" ? `${monthLabel(monthKey)} total` : "Total here"}
-          value={money(total, settings.currency)}
-          tone="bad"
-          hint={`${count} ${count === 1 ? "entry" : "entries"}`}
-        />
-        <StatTile label="Total so far" value={money(lifetimeTotal, settings.currency)} hint="All time, every category" />
-        {level === "months" ? (
+      {/* A single month is just its filters and its sub-categories — the
+          month's own total sits at the foot of that list, so tiles here would
+          only repeat it. */}
+      {level !== "subs" && (
+        <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatTile
-            label="Months covered"
-            value={monthRows.length}
-            hint={monthRows.length ? `${monthLabel(monthRows[monthRows.length - 1][0])} — ${monthLabel(monthRows[0][0])}` : "Nothing recorded"}
+            label={level === "months" ? "Total" : "Total here"}
+            value={money(total, settings.currency)}
+            tone="bad"
+            hint={`${count} ${count === 1 ? "entry" : "entries"}`}
           />
-        ) : (
-          <StatTile
-            label="Biggest sub-category"
-            value={biggestSub ? pct(biggestSub[1].total) : "—"}
-            hint={biggestSub ? biggestSub[0] : "Nothing recorded"}
-          />
-        )}
-        <StatTile
-          label={level === "months" ? "Average per month" : "Average per entry"}
-          value={money(
-            Math.round(level === "months" ? total / (monthRows.length || 1) : total / (count || 1)),
-            settings.currency,
+          <StatTile label="Total so far" value={money(lifetimeTotal, settings.currency)} hint="All time, every category" />
+          {level === "months" ? (
+            <StatTile
+              label="Months covered"
+              value={monthRows.length}
+              hint={monthRows.length ? `${monthLabel(monthRows[monthRows.length - 1][0])} — ${monthLabel(monthRows[0][0])}` : "Nothing recorded"}
+            />
+          ) : (
+            <StatTile
+              label="Largest entry"
+              value={largestEntry ? money(largestEntry.amount, settings.currency) : "—"}
+              hint={largestEntry ? largestEntry.label : "Nothing recorded"}
+            />
           )}
-          hint={level === "months" ? "Across the months shown" : `Over ${count} ${count === 1 ? "entry" : "entries"}`}
-        />
-      </div>
+          <StatTile
+            label={level === "months" ? "Average per month" : "Average per entry"}
+            value={money(
+              Math.round(level === "months" ? total / (monthRows.length || 1) : total / (count || 1)),
+              settings.currency,
+            )}
+            hint={level === "months" ? "Across the months shown" : `Over ${count} ${count === 1 ? "entry" : "entries"}`}
+          />
+        </div>
+      )}
 
       {level === "months" && (
         <Section title="Month by month" subtitle="Newest first — tap a month for its sub-categories" className="mb-4">
@@ -329,21 +341,25 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
             <>
               {groupedSubs.map((g) => (
                 <div key={g.group}>
-                  <div className="flex items-center justify-between gap-3 border-y border-line bg-surface2/50 px-4 py-2">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">{mainLabel(g.group)}</span>
-                    <span className="text-[12.5px] tabular-nums text-muted">{money(g.total, settings.currency)}</span>
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-t border-line px-4 pb-2 pt-5">
+                    <h3 className="text-[19px] font-semibold tracking-tight">{mainLabel(g.group)}</h3>
+                    <span className="text-[19px] font-semibold tabular-nums">{money(g.total, settings.currency)}</span>
                   </div>
-                  <ul className="divide-y divide-line">
+                  <ul className="divide-y divide-line border-t border-line">
                     {g.subs.map(([name, s]) => (
                       <li key={name}>
-                        <Link href={href({ month: monthKey, sub: name })} className="flex items-center justify-between gap-3 px-4 py-3.5 hover:bg-surface2/60">
-                          <span className="min-w-0">
-                            <span className="truncate text-[15px] font-medium">{name}</span>
-                            <span className="block text-[12.5px] text-muted">{s.count} {s.count === 1 ? "entry" : "entries"}</span>
+                        <Link
+                          href={href({ month: monthKey, sub: name })}
+                          className="flex items-center justify-between gap-3 px-4 py-2 text-[13.5px] hover:bg-surface2/60"
+                        >
+                          <span className="min-w-0 truncate">
+                            {name}
+                            <span className="ml-2 text-[12.5px] text-muted">
+                              {s.count} {s.count === 1 ? "entry" : "entries"}
+                            </span>
                           </span>
-                          <span className="shrink-0 text-right">
-                            <span className="block tabular-nums font-semibold">{money(s.total, settings.currency)}</span>
-                            <span className="block text-[12px] text-muted">{pct(s.total)} →</span>
+                          <span className="shrink-0 tabular-nums text-muted">
+                            {money(s.total, settings.currency)} <span className="text-[12px]">· {pct(s.total)} →</span>
                           </span>
                         </Link>
                       </li>

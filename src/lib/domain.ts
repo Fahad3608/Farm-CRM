@@ -154,11 +154,30 @@ export const DEFAULT_CATEGORY_GROUP: Record<string, CategoryGroup> = {
   "Animal Purchase": "Misc",
   "Loan - Javed": "Misc",
   "mics": "Misc",
-  // Written by the batch-cost sync rather than chosen from the picker.
-  "Batch Cost": "Misc",
 
   // Money out now that is expected back.
   "Tenent Advance": "To be Received",
+
+  // Not offered in the picker, but entries already filed under these still
+  // need to roll up somewhere sensible rather than falling through to Misc.
+  "Batch Cost": "Misc",
+  "Other Expense": "Misc",
+  "Veterinary": "Running Expense",
+  "Medicine": "Running Expense",
+  "Feed": "Running Expense",
+  "Chaara (Green Fodder)": "Running Expense",
+  "Wanda / Khal": "Running Expense",
+  "Breeding / AI": "Running Expense",
+  "Transport": "Running Expense",
+  "Tube Well / Water": "Running Expense",
+  "Dewar / Labour": "Running Expense",
+  "Caretaker Salary": "Monthly Operational Cost",
+  "Operational Cost": "Monthly Operational Cost",
+  "Bijli / Utilities": "Monthly Operational Cost",
+  "Utilities": "Monthly Operational Cost",
+  "Insurance": "Monthly Operational Cost",
+  "Labour / Wages": "Fix Cost",
+  "Shed / Maintenance": "Fix Cost",
 };
 
 /** How each main category reads in the UI. */
