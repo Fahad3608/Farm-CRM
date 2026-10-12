@@ -6,6 +6,7 @@ import { can } from "@/lib/permissions";
 import { getSettings } from "@/lib/settings";
 import { Empty, Field, PageHeader, Section, StatTile } from "@/components/ui";
 import { BarList } from "@/components/charts";
+import AutoSubmitSelect from "@/components/AutoSubmitSelect";
 import { EXPENSE_CATEGORIES, EXPENSE_GROUP_LABELS, NO_PAYER, CATEGORY_GROUPS, categoryGroupOf } from "@/lib/domain";
 import { fmtDate, money } from "@/lib/format";
 
@@ -155,13 +156,15 @@ export default async function SpendByCategoryPage({ searchParams }: { searchPara
         {mainKey && <input type="hidden" name="main" value={mainKey} />}
         {subKey && <input type="hidden" name="sub" value={subKey} />}
         <Field label="Paid by">
-          <select name="paidBy" defaultValue={payerFilter} className="input w-auto">
-            <option value="">Anyone</option>
-            {allPayers.map((p) => <option key={p} value={p}>{p}</option>)}
-            <option value={NO_PAYER}>Not recorded</option>
-          </select>
+          <AutoSubmitSelect
+            name="paidBy"
+            defaultValue={payerFilter}
+            className="input w-auto"
+            options={["", ...allPayers, NO_PAYER]}
+            labels={{ "": "Anyone", [NO_PAYER]: "Not recorded" }}
+          />
         </Field>
-        <button className="btn-ghost">Apply</button>
+        <noscript><button className="btn-ghost">Apply</button></noscript>
         {payerFilter && <Link href={href({ main: mainKey, sub: subKey })} className="btn-ghost btn-sm">Reset</Link>}
       </form>
 

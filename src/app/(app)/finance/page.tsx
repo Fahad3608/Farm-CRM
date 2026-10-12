@@ -11,6 +11,7 @@ import { bulkEditSelectedTransactionsAction, categorizeExpenseAction, deleteSele
 
 import LedgerTable, { type LedgerRow } from "@/components/LedgerTable";
 import CategorySelect from "@/components/CategorySelect";
+import AutoSubmitSelect from "@/components/AutoSubmitSelect";
 import { EXPENSE_CATEGORIES, EXPENSE_GROUP_LABELS, NO_PAYER, CATEGORY_GROUPS, categoryGroupOf } from "@/lib/domain";
 import { fmtDate, money } from "@/lib/format";
 
@@ -228,22 +229,29 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
         </nav>
       )}
 
+      {/* Both filters apply the moment they change — no separate Apply step,
+          which only ever looked like the dropdown had done nothing. */}
       <form className="mb-4 flex flex-wrap items-end gap-2" action="/finance">
         {subKey && <input type="hidden" name="sub" value={subKey} />}
         <Field label="Month">
-          <select name="month" defaultValue={monthKey} className="input w-auto">
-            <option value="">All months</option>
-            {monthOptions.map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}
-          </select>
+          <AutoSubmitSelect
+            name="month"
+            defaultValue={monthKey}
+            className="input w-auto"
+            options={["", ...monthOptions]}
+            labels={{ "": "All months", ...Object.fromEntries(monthOptions.map((m) => [m, monthLabel(m)])) }}
+          />
         </Field>
         <Field label="Paid by">
-          <select name="paidBy" defaultValue={payerFilter} className="input w-auto">
-            <option value="">Anyone</option>
-            {allPayers.map((p) => <option key={p} value={p}>{p}</option>)}
-            <option value={NO_PAYER}>Not recorded</option>
-          </select>
+          <AutoSubmitSelect
+            name="paidBy"
+            defaultValue={payerFilter}
+            className="input w-auto"
+            options={["", ...allPayers, NO_PAYER]}
+            labels={{ "": "Anyone", [NO_PAYER]: "Not recorded" }}
+          />
         </Field>
-        <button className="btn-ghost">Apply</button>
+        <noscript><button className="btn-ghost">Apply</button></noscript>
         {(monthKey || payerFilter) && <Link href="/finance" className="btn-ghost btn-sm">Reset</Link>}
       </form>
 
