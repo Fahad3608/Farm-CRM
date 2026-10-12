@@ -272,8 +272,6 @@ export default function LedgerTable({
                           <input name="paidBy" defaultValue={t.paidBy ?? ""} className="input" list={`edit-payer-opts-${t.id}`} />
                           <datalist id={`edit-payer-opts-${t.id}`}>{payers.map((p) => <option key={p} value={p} />)}</datalist>
                         </Field>
-                        <Field label="Payment method"><input name="paymentMethod" defaultValue={t.paymentMethod ?? ""} className="input" /></Field>
-                        <Field label="Reference / receipt no."><input name="reference" defaultValue={t.reference ?? ""} className="input" /></Field>
                         <div className="flex items-center gap-2 sm:col-span-2">
                           <SubmitButton>Save changes</SubmitButton>
                           <button type="button" onClick={() => setEditingId(null)} className="btn-ghost">Cancel</button>

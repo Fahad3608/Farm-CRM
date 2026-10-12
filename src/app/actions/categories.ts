@@ -26,7 +26,7 @@ export async function createCategoryAction(_prev: State, fd: FormData): Promise<
     return { error: msg };
   }
 
-  revalidatePath("/finance");
+  revalidatePath("/finance", "layout");
   revalidatePath("/settings");
   return { ok: "Category added." };
 }
@@ -36,13 +36,13 @@ export async function deleteCategoryAction(fd: FormData) {
   if (!can.editFinance(user.role)) throw new Error("Not permitted.");
   const id = reqStr(fd, "id");
   await prisma.category.delete({ where: { id } });
-  revalidatePath("/finance");
+  revalidatePath("/finance", "layout");
   revalidatePath("/settings");
 }
 
 /**
- * Assigns an expense category to a group (Operational, Capital &
- * Construction, ...) so it rolls up correctly on the Finance page. The
+ * Assigns an expense sub-category to its main category, so it rolls up
+ * correctly on the Finance page. The
  * category may be a built-in one or one only ever typed freeform on a
  * transaction — either way this is the first time it becomes its own row,
  * so it's an upsert rather than an update.
@@ -58,7 +58,7 @@ export async function setCategoryGroupAction(fd: FormData) {
     create: { name, type: "EXPENSE", group },
     update: { group },
   });
-  revalidatePath("/finance");
+  revalidatePath("/finance", "layout");
   revalidatePath("/settings");
 }
 

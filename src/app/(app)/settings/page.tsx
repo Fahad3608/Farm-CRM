@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
@@ -9,13 +10,10 @@ import RecordActions from "@/components/RecordActions";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import Disclosure from "@/components/Disclosure";
 import { deleteUserAction, saveFarmSettingsAction, saveUserAction } from "@/app/actions/settings";
-import { createCategoryAction, deleteCategoryAction, setCategoryGroupAction } from "@/app/actions/categories";
 import { createPayerAction, deletePayerAction, renamePayerAction } from "@/app/actions/payers";
 import { backfillPurchaseTransactionsAction, deduplicatePurchaseTransactionsAction } from "@/app/actions/animals";
 import { backfillBatchCostTransactionsAction } from "@/app/actions/batches";
 import { fmtDate, money } from "@/lib/format";
-import { CATEGORY_GROUPS, EXPENSE_CATEGORIES, EXPENSE_GROUP_LABELS, categoryGroupOf } from "@/lib/domain";
-import AutoSubmitSelect from "@/components/AutoSubmitSelect";
 
 export const dynamic = "force-dynamic";
 
@@ -26,9 +24,6 @@ export default async function SettingsPage() {
   const settings = await getSettings();
   const users = can.manageUsers(me.role)
     ? await prisma.user.findMany({ orderBy: [{ role: "asc" }, { name: "asc" }] })
-    : [];
-  const categories = can.editFinance(me.role)
-    ? await prisma.category.findMany({ orderBy: [{ type: "asc" }, { name: "asc" }] })
     : [];
   const payers = can.editFinance(me.role)
     ? await prisma.payer.findMany({ orderBy: { name: "asc" } })
@@ -42,19 +37,6 @@ export default async function SettingsPage() {
           .map((r) => [r.paidBy as string, Number(r._sum.amount ?? 0)]),
       )
     : new Map<string, number>();
-
-  // Every expense category anyone could see on Finance — built-in, custom, or
-  // just typed once on a transaction — so grouping covers all of them, not
-  // only the ones deliberately added as suggestions.
-  const usedExpenseCategories = can.editFinance(me.role)
-    ? (await prisma.transaction.findMany({ where: { type: "EXPENSE" }, select: { category: true }, distinct: ["category"] })).map((t) => t.category)
-    : [];
-  const assignedGroups = new Map(categories.filter((c) => c.type === "EXPENSE" && c.group).map((c) => [c.name, c.group!]));
-  const allExpenseCategories = [...new Set([
-    ...EXPENSE_CATEGORIES,
-    ...categories.filter((c) => c.type === "EXPENSE").map((c) => c.name),
-    ...usedExpenseCategories,
-  ])].sort();
 
   return (
     <>
@@ -89,33 +71,13 @@ export default async function SettingsPage() {
         </Section>
 
         {can.editFinance(me.role) && (
-          <Section title="Expense categories" subtitle="Always offered as a suggestion on Finance, even before you've used them" className="lg:col-span-2">
-            <div className="border-b border-line p-4">
-              <ActionForm action={createCategoryAction} className="flex flex-wrap items-end gap-3" resetOnSuccess>
-                <Field label="Name *"><input name="name" required className="input w-auto" placeholder="Dewar Labour" /></Field>
-                <input type="hidden" name="type" value="EXPENSE" />
-                <SubmitButton>Add category</SubmitButton>
-              </ActionForm>
+          <Section title="Finance categories" subtitle="Sub-categories and the main category each rolls up into" className="lg:col-span-2">
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4">
+              <p className="text-[13.5px] text-muted">
+                Managed on their own page, alongside what each has cost so far.
+              </p>
+              <Link href="/finance/manage" className="btn-ghost btn-sm">Manage categories</Link>
             </div>
-
-            {categories.length === 0 ? (
-              <Empty icon="🏷️" title="No custom categories yet" hint="The usual ones (Feed, Veterinary, Doodh…) already show up as suggestions — add your own here too." />
-            ) : (
-              <ul className="divide-y divide-line">
-                {categories.map((c) => (
-                  <li key={c.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                    <span className="flex items-center gap-2 text-[14px]">
-                      {c.name}
-                      <Badge tone={c.type === "INCOME" ? "good" : "muted"}>{c.type === "INCOME" ? "Income" : "Expense"}</Badge>
-                    </span>
-                    <RecordActions label="Category actions"><form action={deleteCategoryAction}>
-                      <input type="hidden" name="id" value={c.id} />
-                      <ConfirmSubmit className="record-delete-action" message={`Remove "${c.name}" from your category suggestions? Existing transactions keep it.`}>Remove category</ConfirmSubmit>
-                    </form></RecordActions>
-                  </li>
-                ))}
-              </ul>
-            )}
           </Section>
         )}
 
@@ -165,33 +127,6 @@ export default async function SettingsPage() {
               </ul>
             )}
           </Section>
-        )}
-
-        {can.editFinance(me.role) && (
-          <div id="expense-groups" className="scroll-mt-4 lg:col-span-2">
-          <Section
-            title="Group your expense categories"
-            subtitle="Controls the monthly expense breakdown in Finance"
-            className="lg:col-span-2"
-          >
-            <p className="border-b border-line px-4 py-3 text-[13px] text-muted">
-              Operational costs include Farm Rent, Caretaker Salary, feed and veterinary care.
-              Construction &amp; equipment includes Construction and Equipment. Animal Purchases covers livestock.
-              Use Other when the purpose needs review. Changes regroup existing entries in every month.
-            </p>
-            <ul className="divide-y divide-line">
-              {allExpenseCategories.map((name) => (
-                <li key={name} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                  <span className="truncate text-[14px]">{name}</span>
-                  <form action={setCategoryGroupAction}>
-                    <input type="hidden" name="name" value={name} />
-                    <AutoSubmitSelect name="group" defaultValue={categoryGroupOf(name, assignedGroups)} options={CATEGORY_GROUPS} labels={EXPENSE_GROUP_LABELS} />
-                  </form>
-                </li>
-              ))}
-            </ul>
-          </Section>
-          </div>
         )}
 
         {can.editFinance(me.role) && (

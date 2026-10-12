@@ -98,17 +98,18 @@ export const BREEDING_STATUS_LABEL: Record<BreedingStatus, string> = {
 
 export const ROUTES = ["IM (intramuscular)", "SC (subcutaneous)", "IV (intravenous)", "Oral", "Topical", "Intranasal", "Intramammary"];
 
+/**
+ * The sub-categories the farm's master spreadsheet actually uses — nothing
+ * else. Each one belongs to exactly one main category (below), so choosing a
+ * sub-category settles its main category with no second decision to make.
+ * Extra ones can be added in Finance → Categories.
+ */
 export const EXPENSE_CATEGORIES = [
-  "Feed", "Feeding Cost", "Direct Purchase - Feed", "Chaara (Green Fodder)", "Wanda / Khal",
-  "Veterinary", "Vet Cost", "Medicine",
-  "Animal Purchase", "Dewar / Labour", "Worker Salary", "Labour Cost", "Labour / Wages", "Caretaker Salary",
-  "Equipment", "Construction", "Transport",
-  "Bijli / Utilities", "Utilities", "Tube Well / Water",
-  "Farm Rent", "Operational Cost", "Shed / Maintenance",
-  "Breeding / AI", "Batch Cost", "Insurance",
-  "Farm Camera SIM data",
-  "Loan - Javed", "Tenent Advance", "mics",
-  "Other Expense",
+  "Farm Rent", "Worker Salary", "Farm Camera SIM data",
+  "Feeding Cost", "Direct Purchase - Feed", "Vet Cost",
+  "Equipment", "Construction", "Labour Cost",
+  "Animal Purchase", "Loan - Javed", "mics",
+  "Tenent Advance",
 ];
 
 /**
@@ -116,9 +117,7 @@ export const EXPENSE_CATEGORIES = [
  * page — where a cost can be put against one animal or marked farm-wide —
  * rather than from Finance, which only reports on them.
  */
-export const FEED_EXPENSE_CATEGORIES = [
-  "Feed", "Feeding Cost", "Direct Purchase - Feed", "Chaara (Green Fodder)", "Wanda / Khal",
-];
+export const FEED_EXPENSE_CATEGORIES = ["Feeding Cost", "Direct Purchase - Feed"];
 
 export const INCOME_CATEGORIES = [
   "Doodh (Milk Sales)", "Animal Sale", "Gobar (Manure)", "Desi Ghee",
@@ -140,39 +139,23 @@ export const DEFAULT_CATEGORY_GROUP: Record<string, CategoryGroup> = {
   // Fixed monthly commitments — rent, salaries, connectivity.
   "Farm Rent": "Monthly Operational Cost",
   "Worker Salary": "Monthly Operational Cost",
-  "Caretaker Salary": "Monthly Operational Cost",
   "Farm Camera SIM data": "Monthly Operational Cost",
-  "Operational Cost": "Monthly Operational Cost",
-  "Bijli / Utilities": "Monthly Operational Cost",
-  "Utilities": "Monthly Operational Cost",
-  "Insurance": "Monthly Operational Cost",
 
   // Day-to-day running costs that vary with the herd.
-  "Feed": "Running Expense",
   "Feeding Cost": "Running Expense",
   "Direct Purchase - Feed": "Running Expense",
-  "Chaara (Green Fodder)": "Running Expense",
-  "Wanda / Khal": "Running Expense",
   "Vet Cost": "Running Expense",
-  "Veterinary": "Running Expense",
-  "Medicine": "Running Expense",
-  "Breeding / AI": "Running Expense",
-  "Transport": "Running Expense",
-  "Tube Well / Water": "Running Expense",
-  "Dewar / Labour": "Running Expense",
 
   // One-off capital spend: kit, building work and the labour to install it.
   "Equipment": "Fix Cost",
   "Construction": "Fix Cost",
   "Labour Cost": "Fix Cost",
-  "Labour / Wages": "Fix Cost",
-  "Shed / Maintenance": "Fix Cost",
 
   "Animal Purchase": "Misc",
-  "Batch Cost": "Misc",
   "Loan - Javed": "Misc",
   "mics": "Misc",
-  "Other Expense": "Misc",
+  // Written by the batch-cost sync rather than chosen from the picker.
+  "Batch Cost": "Misc",
 
   // Money out now that is expected back.
   "Tenent Advance": "To be Received",
