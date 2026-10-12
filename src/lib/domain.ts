@@ -131,7 +131,7 @@ export const INCOME_CATEGORIES = [
  * and the fallback for any category no one has grouped yet.
  */
 export const CATEGORY_GROUPS = [
-  "Monthly Operational Cost", "Running Expense", "Fix Cost", "Misc", "To be Received",
+  "Monthly Operational Cost", "Running Expense", "Fix Cost", "Animal Purchase", "Misc", "To be Received",
 ] as const;
 export type CategoryGroup = (typeof CATEGORY_GROUPS)[number];
 
@@ -151,7 +151,10 @@ export const DEFAULT_CATEGORY_GROUP: Record<string, CategoryGroup> = {
   "Construction": "Fix Cost",
   "Labour Cost": "Fix Cost",
 
-  "Animal Purchase": "Misc",
+  // Livestock, bought singly or as a batch — big enough to stand on its own
+  // rather than sit inside Misc.
+  "Animal Purchase": "Animal Purchase",
+
   "Loan - Javed": "Misc",
   "mics": "Misc",
 
@@ -160,7 +163,7 @@ export const DEFAULT_CATEGORY_GROUP: Record<string, CategoryGroup> = {
 
   // Not offered in the picker, but entries already filed under these still
   // need to roll up somewhere sensible rather than falling through to Misc.
-  "Batch Cost": "Misc",
+  "Batch Cost": "Animal Purchase",
   "Other Expense": "Misc",
   "Veterinary": "Running Expense",
   "Medicine": "Running Expense",
@@ -185,6 +188,7 @@ export const EXPENSE_GROUP_LABELS: Record<string, string> = {
   "Monthly Operational Cost": "Monthly operational cost",
   "Running Expense": "Running expense",
   "Fix Cost": "Fix cost",
+  "Animal Purchase": "Animal purchase",
   Misc: "Misc",
   "To be Received": "To be received",
 };
